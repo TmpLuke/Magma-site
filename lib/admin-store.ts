@@ -567,6 +567,7 @@ export const useAdminStore = create<AdminStore>()(
     }),
     {
       name: "admin-store",
+      version: 2, // Increment to force localStorage reset
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
       },

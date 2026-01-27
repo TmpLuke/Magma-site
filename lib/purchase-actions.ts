@@ -127,8 +127,10 @@ export async function processPurchase(data: PurchaseData): Promise<PurchaseResul
     }
     
     // Create Money Motion checkout session
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+    const baseUrl = typeof window !== 'undefined' 
+      ? window.location.origin 
+      : (process.env.NEXT_PUBLIC_SITE_URL || 
+         (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000"));
     
     const checkoutResponse = await fetch(`${baseUrl}/api/payments/moneymotion/create-session`, {
       method: "POST",

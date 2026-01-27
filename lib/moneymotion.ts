@@ -63,11 +63,17 @@ export async function createCheckoutSession(params: CreateCheckoutParams) {
   try {
     const apiKey = process.env.MONEYMOTION_API_KEY;
     
+    console.log("[MoneyMotion DEBUG] Starting checkout session creation");
+    console.log("[MoneyMotion DEBUG] API Key exists:", !!apiKey);
+    console.log("[MoneyMotion DEBUG] API Key length:", apiKey?.length);
+    console.log("[MoneyMotion DEBUG] API Key first 10 chars:", apiKey?.substring(0, 10));
+    
     if (!apiKey) {
+      console.error("[MoneyMotion DEBUG] API key is missing!");
       return { success: false, error: "API key not configured" };
     }
 
-    const body = JSON.stringify({
+    const requestBody = {
       json: {
         description: params.description,
         urls: {
@@ -80,50 +86,86 @@ export async function createCheckoutSession(params: CreateCheckoutParams) {
         },
         lineItems: params.lineItems,
       },
+    };
+
+    console.log("[MoneyMotion DEBUG] Request body:", JSON.stringify(requestBody, null, 2));
+
+    const body = JSON.stringify(requestBody);
+
+    const requestUrl = `${MONEYMOTION_API_URL}/checkoutSessions.createCheckoutSession`;
+    console.log("[MoneyMotion DEBUG] Request URL:", requestUrl);
+    console.log("[MoneyMotion DEBUG] Request headers:", {
+      "Content-Type": "application/json",
+      "x-moneymotion-api-key": `${apiKey.substring(0, 10)}...`,
     });
 
-    const response = await fetch(
-      `${MONEYMOTION_API_URL}/checkoutSessions.createCheckoutSession`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-moneymotion-api-key": apiKey,
-        },
-        body,
-      }
-    );
+    const response = await fetch(requestUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-moneymotion-api-key": apiKey,
+      },
+      body,
+    });
+
+    console.log("[MoneyMotion DEBUG] Response status:", response.status);
+    console.log("[MoneyMotion DEBUG] Response headers:", Object.fromEntries(response.headers.entries()));
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("[MoneyMotion] Create session error:", response.status, errorText);
+      console.error("[MoneyMotion DEBUG] Error response body:", errorText);
+      console.error("[MoneyMotion DEBUG] Full error details:", {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText,
+      });
       return {
         success: false,
-        error: `API error: ${response.status}`,
+        error: `API error: ${response.status} - ${errorText}`,
       };
     }
 
-    const data: CheckoutSessionResponse = await response.json();
+    const responseText = await response.text();
+    console.log("[MoneyMotion DEBUG] Success response body:", responseText);
+
+    let data: CheckoutSessionResponse;
+    try {
+      data = JSON.parse(responseText);
+      console.log("[MoneyMotion DEBUG] Parsed response:", JSON.stringify(data, null, 2));
+    } catch (parseError) {
+      console.error("[MoneyMotion DEBUG] Failed to parse response:", parseError);
+      return {
+        success: false,
+        error: "Invalid JSON response from API",
+      };
+    }
+
     const checkoutSessionId = data?.result?.data?.json?.checkoutSessionId;
+    console.log("[MoneyMotion DEBUG] Extracted checkout session ID:", checkoutSessionId);
 
     if (!checkoutSessionId) {
-      console.error("[MoneyMotion] No checkout session ID:", data);
+      console.error("[MoneyMotion DEBUG] No checkout session ID in response");
+      console.error("[MoneyMotion DEBUG] Full response structure:", JSON.stringify(data, null, 2));
       return {
         success: false,
-        error: "Invalid API response",
+        error: "Invalid API response - no session ID",
       };
     }
+
+    const checkoutUrl = `https://moneymotion.io/checkout/${checkoutSessionId}`;
+    console.log("[MoneyMotion DEBUG] Generated checkout URL:", checkoutUrl);
 
     return {
       success: true,
       checkoutSessionId,
-      checkoutUrl: `https://moneymotion.io/checkout/${checkoutSessionId}`,
+      checkoutUrl,
     };
   } catch (error) {
-    console.error("[MoneyMotion] Create session exception:", error);
+    console.error("[MoneyMotion DEBUG] Exception caught:", error);
+    console.error("[MoneyMotion DEBUG] Exception stack:", error instanceof Error ? error.stack : "No stack");
     return {
       success: false,
-      error: "Failed to create checkout session",
+      error: `Exception: ${error instanceof Error ? error.message : String(error)}`,
     };
   }
 }

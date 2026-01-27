@@ -150,9 +150,20 @@ export async function processPurchase(data: PurchaseData): Promise<PurchaseResul
     try {
       const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
       
+      console.log("[Purchase DEBUG] Starting MoneyMotion checkout");
+      console.log("[Purchase DEBUG] Base URL:", baseUrl);
+      console.log("[Purchase DEBUG] Order details:", {
+        orderNumber,
+        orderId: order.id,
+        productName: data.productName,
+        duration: data.duration,
+        finalPrice,
+        customerEmail: data.customerEmail,
+      });
+      
       const { createCheckoutSession } = await import("@/lib/moneymotion");
       
-      const result = await createCheckoutSession({
+      const checkoutParams = {
         description: `${data.productName} - ${data.duration}`,
         successUrl: `${baseUrl}/payment/success?order=${orderNumber}`,
         cancelUrl: `${baseUrl}/payment/cancelled?order=${orderNumber}`,
@@ -166,9 +177,16 @@ export async function processPurchase(data: PurchaseData): Promise<PurchaseResul
             quantity: 1,
           },
         ],
-      });
+      };
+      
+      console.log("[Purchase DEBUG] Checkout params:", JSON.stringify(checkoutParams, null, 2));
+      
+      const result = await createCheckoutSession(checkoutParams);
+      
+      console.log("[Purchase DEBUG] Checkout result:", JSON.stringify(result, null, 2));
       
       if (!result.success || !result.checkoutSessionId) {
+        console.error("[Purchase DEBUG] Checkout failed, deleting order");
         await supabase.from("orders").delete().eq("id", order.id);
         return {
           success: false,
@@ -176,9 +194,12 @@ export async function processPurchase(data: PurchaseData): Promise<PurchaseResul
         };
       }
       
+      console.log("[Purchase DEBUG] Updating order with payment method");
       await supabase.from("orders").update({
         payment_method: "moneymotion",
       }).eq("id", order.id);
+      
+      console.log("[Purchase DEBUG] Checkout successful, returning URL:", result.checkoutUrl);
       
       return {
         success: true,
@@ -188,11 +209,12 @@ export async function processPurchase(data: PurchaseData): Promise<PurchaseResul
         sessionId: result.checkoutSessionId,
       };
     } catch (error) {
-      console.error("[Purchase] MoneyMotion error:", error);
+      console.error("[Purchase DEBUG] Exception in MoneyMotion integration:", error);
+      console.error("[Purchase DEBUG] Exception stack:", error instanceof Error ? error.stack : "No stack");
       await supabase.from("orders").delete().eq("id", order.id);
       return {
         success: false,
-        error: "Failed to create checkout session",
+        error: `Exception: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
     

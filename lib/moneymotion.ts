@@ -96,14 +96,14 @@ export async function createCheckoutSession(params: CreateCheckoutParams) {
     console.log("[MoneyMotion DEBUG] Request URL:", requestUrl);
     console.log("[MoneyMotion DEBUG] Request headers:", {
       "Content-Type": "application/json",
-      "x-moneymotion-api-key": `${apiKey.substring(0, 10)}...`,
+      "x-api-key": `${apiKey.substring(0, 10)}...`,
     });
 
     const response = await fetch(requestUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-moneymotion-api-key": apiKey,
+        "x-api-key": apiKey,
       },
       body,
     });
@@ -184,7 +184,7 @@ export async function getCheckoutStatus(checkoutId: string) {
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        "x-moneymotion-api-key": apiKey,
+        "x-api-key": apiKey,
       },
     });
 

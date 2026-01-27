@@ -58,7 +58,7 @@ export async function GET() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-moneymotion-api-key": apiKey,
+          "x-api-key": apiKey,
         },
         body: JSON.stringify(testBody),
       }

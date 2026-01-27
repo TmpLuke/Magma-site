@@ -112,7 +112,7 @@ export default function ProductsPage() {
 
   return (
     <AdminShell title="Products" subtitle="Manage your products">
-      <div className="mb-6">
+      <div className="mb-6 flex items-center justify-between">
         <Button
           onClick={() => loadProducts()}
           variant="outline"
@@ -122,14 +122,40 @@ export default function ProductsPage() {
           <RefreshCw className="w-4 h-4 mr-2" />
           Refresh
         </Button>
+        
+        <div className="text-white/50 text-sm">
+          To add products, use the Supabase dashboard or create an admin UI for product management.
+        </div>
       </div>
 
-      <DataTable
-        data={products}
-        columns={columns}
-        searchKey="name"
-        searchPlaceholder="Search products..."
-      />
+      {products.length === 0 ? (
+        <div className="text-center py-16 bg-[#0a0a0a] border border-[#1a1a1a] rounded-xl">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#dc2626]/10 mb-4">
+            <svg className="w-8 h-8 text-[#dc2626]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+            </svg>
+          </div>
+          <h3 className="text-xl font-bold text-white mb-2">No Products Yet</h3>
+          <p className="text-white/50 max-w-md mx-auto mb-6">
+            Add your first product through the Supabase dashboard to get started.
+          </p>
+          <a
+            href="https://supabase.com/dashboard"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center px-4 py-2 bg-[#dc2626] hover:bg-[#ef4444] text-white rounded-lg transition-colors"
+          >
+            Open Supabase Dashboard
+          </a>
+        </div>
+      ) : (
+        <DataTable
+          data={products}
+          columns={columns}
+          searchKey="name"
+          searchPlaceholder="Search products..."
+        />
+      )}
     </AdminShell>
   );
 }

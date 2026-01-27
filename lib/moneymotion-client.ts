@@ -52,7 +52,7 @@ export async function createCheckoutSession(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
+          "x-moneymotion-api-key": apiKey,
         },
         body: JSON.stringify({
           json: {
@@ -123,7 +123,7 @@ export async function getCheckoutStatus(
     const response = await fetch(url.toString(), {
       method: "GET",
       headers: {
-        "Authorization": `Bearer ${apiKey}`,
+        "x-moneymotion-api-key": apiKey,
       },
     });
 

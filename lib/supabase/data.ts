@@ -13,6 +13,7 @@ function transformProduct(product: any, pricing: any[], features: any[], require
   };
   
   features.forEach((f) => {
+    if (!f || !f.name) return;
     const category = f.category?.toLowerCase() || "misc";
     if (category === "aimbot") featuresByCategory.aimbot.push(f.name);
     else if (category === "esp" || category === "visuals") featuresByCategory.esp.push(f.name);

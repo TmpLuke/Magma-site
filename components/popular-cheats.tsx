@@ -19,7 +19,8 @@ interface PopularCheatsProps {
 }
 
 // Convert game name to slug
-function gameToSlug(game: string): string {
+function gameToSlug(game: string | undefined): string {
+  if (!game) return "";
   return game.toLowerCase().replace(/[:\s]+/g, "-").replace(/--+/g, "-");
 }
 

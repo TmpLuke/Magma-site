@@ -59,6 +59,7 @@ export async function GET() {
         headers: {
           "Content-Type": "application/json",
           "x-api-key": apiKey,
+          "x-currency": "USD",
         },
         body: JSON.stringify(testBody),
       }

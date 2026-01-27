@@ -38,9 +38,10 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     const currentSessionId = sessionId || token;
+    const orderNumber = searchParams.get("order");
     const mockSuccess = searchParams.get("mock_success");
     
-    if (!currentSessionId) {
+    if (!currentSessionId && !orderNumber) {
       setStatus("failed");
       return;
     }
@@ -54,7 +55,7 @@ export default function CheckoutPage() {
         paid_at: new Date().toISOString(),
       });
       setTimeout(() => {
-        router.push(`/payment/success?session=${currentSessionId}`);
+        router.push(`/payment/success?order=${orderNumber || currentSessionId}`);
       }, 2000);
       return;
     }
@@ -86,12 +87,23 @@ export default function CheckoutPage() {
 
   const checkPaymentStatus = async () => {
     const currentSessionId = sessionId || token;
-    if (!currentSessionId) return;
+    const orderNumber = searchParams.get("order");
+    
+    if (!currentSessionId && !orderNumber) return;
 
     try {
-      // Try MoneyMotion first, then fallback to BrickPay
+      // If we have an order number, check by order instead of session
       let response;
-      if (sessionId) {
+      if (orderNumber) {
+        // For mock mode, just mark as pending and allow manual completion
+        setStatus("pending");
+        setPaymentData({
+          amount: 8.90,
+          currency: "USD",
+          paid_at: null,
+        });
+        return;
+      } else if (sessionId) {
         response = await fetch(`/api/payments/moneymotion/check-status?session=${currentSessionId}`);
       } else {
         response = await fetch(`/api/payments/check-status?token=${currentSessionId}`);
@@ -111,7 +123,7 @@ export default function CheckoutPage() {
 
           // Redirect to success page after 2 seconds
           setTimeout(() => {
-            router.push(`/payment/success?session=${currentSessionId}`);
+            router.push(`/payment/success?order=${orderNumber || currentSessionId}`);
           }, 2000);
         } else if (data.status === "expired") {
           setStatus("expired");

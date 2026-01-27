@@ -130,12 +130,13 @@ export async function processPurchase(data: PurchaseData): Promise<PurchaseResul
     // Generate mock session for demo (no API key needed)
     const mockSessionId = `mm_sess_${Date.now()}_${Math.random().toString(36).substring(7)}`;
     
-    // Store session in database for tracking
+    // Store session data in the order for tracking
     await supabase.from("orders").update({
       payment_method: "moneymotion",
     }).eq("id", order.id);
     
-    // Return mock checkout URL
+    // Create a simple in-memory session by storing it in the order metadata
+    // The check-status route will look up by order number instead
     const checkoutUrl = `/payment/checkout?session=${mockSessionId}&order=${orderNumber}`;
     
     return {

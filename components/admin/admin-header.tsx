@@ -32,9 +32,10 @@ export function AdminHeader({ title, subtitle }: AdminHeaderProps) {
   
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const formatTimeAgo = (date: Date) => {
+  const formatTimeAgo = (date: Date | string) => {
     const now = new Date();
-    const diff = now.getTime() - date.getTime();
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    const diff = now.getTime() - dateObj.getTime();
     const hours = Math.floor(diff / (1000 * 60 * 60));
     if (hours < 1) return "Just now";
     if (hours < 24) return `${hours}h ago`;

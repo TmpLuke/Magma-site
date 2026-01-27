@@ -83,5 +83,5 @@ export interface Notification {
   title: string;
   message: string;
   read: boolean;
-  createdAt: Date;
+  createdAt: Date | string;
 }

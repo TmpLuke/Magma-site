@@ -127,25 +127,102 @@ export async function processPurchase(data: PurchaseData): Promise<PurchaseResul
     }
     
     // Create Money Motion checkout session
-    // Generate mock session for demo (no API key needed)
-    const mockSessionId = `mm_sess_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const apiKey = process.env.MONEYMOTION_API_KEY;
     
-    // Store session data in the order for tracking
-    await supabase.from("orders").update({
-      payment_method: "moneymotion",
-    }).eq("id", order.id);
+    if (!apiKey) {
+      // Mock mode - redirect to our own checkout page
+      const mockSessionId = `mm_sess_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      
+      await supabase.from("orders").update({
+        payment_method: "moneymotion",
+      }).eq("id", order.id);
+      
+      const checkoutUrl = `/payment/checkout?session=${mockSessionId}&order=${orderNumber}`;
+      
+      return {
+        success: true,
+        orderId: order.id,
+        orderNumber,
+        checkoutUrl,
+        sessionId: mockSessionId,
+      };
+    }
     
-    // Create a simple in-memory session by storing it in the order metadata
-    // The check-status route will look up by order number instead
-    const checkoutUrl = `/payment/checkout?session=${mockSessionId}&order=${orderNumber}`;
-    
-    return {
-      success: true,
-      orderId: order.id,
-      orderNumber,
-      checkoutUrl,
-      sessionId: mockSessionId,
-    };
+    // Real MoneyMotion API integration
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 
+        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+      
+      const moneyMotionResponse = await fetch("https://api.moneymotion.io/createCheckoutSession", {
+        method: "POST",
+        headers: {
+          "X-API-Key": apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          amount: finalPrice,
+          currency: "USD",
+          customer_email: data.customerEmail,
+          description: `${data.productName} - ${data.duration}`,
+          metadata: {
+            order_id: orderNumber,
+            product_id: realProductId,
+            license_duration: data.duration,
+          },
+          success_url: `${baseUrl}/payment/success?order=${orderNumber}`,
+          cancel_url: `${baseUrl}/payment/cancelled?order=${orderNumber}`,
+        }),
+      });
+      
+      if (!moneyMotionResponse.ok) {
+        const errorText = await moneyMotionResponse.text();
+        console.error("[Purchase] MoneyMotion API error:", moneyMotionResponse.status, errorText);
+        
+        // Clean up the pending order
+        await supabase.from("orders").delete().eq("id", order.id);
+        
+        return { 
+          success: false, 
+          error: `Payment service error: ${moneyMotionResponse.status}` 
+        };
+      }
+      
+      const moneyMotionResult = await moneyMotionResponse.json();
+      
+      if (!moneyMotionResult.success || !moneyMotionResult.sessionId || !moneyMotionResult.checkoutUrl) {
+        // Clean up the pending order
+        await supabase.from("orders").delete().eq("id", order.id);
+        
+        return { 
+          success: false, 
+          error: moneyMotionResult.error || "Failed to create checkout session" 
+        };
+      }
+      
+      // Update order with session ID
+      await supabase.from("orders").update({
+        payment_method: "moneymotion",
+      }).eq("id", order.id);
+      
+      return {
+        success: true,
+        orderId: order.id,
+        orderNumber,
+        checkoutUrl: moneyMotionResult.checkoutUrl, // This will be like: https://moneymotion.io/checkout/SESSION_ID
+        sessionId: moneyMotionResult.sessionId,
+      };
+      
+    } catch (error) {
+      console.error("[Purchase] MoneyMotion error:", error);
+      
+      // Clean up the pending order
+      await supabase.from("orders").delete().eq("id", order.id);
+      
+      return { 
+        success: false, 
+        error: "Failed to create checkout session" 
+      };
+    }
     
   } catch (error) {
     console.error("[Purchase] Error:", error);

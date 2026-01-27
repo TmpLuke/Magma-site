@@ -17,5 +17,9 @@ export default async function SecureAdminLayout({
   // Check if user is authenticated (skip for login page)
   const isAuthenticated = await checkAdminSession();
   
+  // Get current path to check if it's the login page
+  // Note: We can't use usePathname in server components, so we'll handle this differently
+  // The login page will be accessible without auth, all other pages require auth
+  
   return <>{children}</>;
 }

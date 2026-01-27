@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, XCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface License {
   id: string;
@@ -21,6 +22,8 @@ interface License {
 export default function LicensesPage() {
   const [licenses, setLicenses] = useState<License[]>([]);
   const [loading, setLoading] = useState(true);
+  const [revoking, setRevoking] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     loadLicenses();
@@ -28,16 +31,22 @@ export default function LicensesPage() {
 
   async function loadLicenses() {
     try {
+      setLoading(true);
       const supabase = createClient();
       const { data, error } = await supabase
         .from("licenses")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false});
 
       if (error) throw error;
       setLicenses(data || []);
     } catch (error) {
       console.error("Failed to load licenses:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load licenses. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -45,6 +54,7 @@ export default function LicensesPage() {
 
   async function revokeLicense(licenseId: string) {
     try {
+      setRevoking(licenseId);
       const supabase = createClient();
       const { error } = await supabase
         .from("licenses")
@@ -52,9 +62,22 @@ export default function LicensesPage() {
         .eq("id", licenseId);
 
       if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: "License revoked successfully.",
+      });
+      
       await loadLicenses();
     } catch (error) {
       console.error("Failed to revoke license:", error);
+      toast({
+        title: "Error",
+        description: "Failed to revoke license. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setRevoking(null);
     }
   }
 
@@ -130,9 +153,10 @@ export default function LicensesPage() {
           onClick={() => loadLicenses()}
           variant="outline"
           size="sm"
+          disabled={loading}
           className="bg-[#1a1a1a] border-[#262626] text-white hover:bg-[#262626]"
         >
-          <RefreshCw className="w-4 h-4 mr-2" />
+          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
           Refresh
         </Button>
       </div>
@@ -149,9 +173,14 @@ export default function LicensesPage() {
                 onClick={() => revokeLicense(license.id)}
                 size="sm"
                 variant="ghost"
+                disabled={revoking === license.id}
                 className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
               >
-                <XCircle className="w-4 h-4" />
+                {revoking === license.id ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <XCircle className="w-4 h-4" />
+                )}
               </Button>
             )}
           </div>

@@ -5,6 +5,7 @@ import React, { useState, useEffect } from "react"
 import { useAdminStore } from "@/lib/admin-store";
 import { AdminSidebar } from "./admin-sidebar";
 import { AdminHeader } from "./admin-header";
+import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
 
 interface AdminShellProps {
@@ -42,6 +43,7 @@ export function AdminShell({ children, title, subtitle }: AdminShellProps) {
       >
         <div className="p-6">{children}</div>
       </main>
+      <Toaster />
     </div>
   );
 }

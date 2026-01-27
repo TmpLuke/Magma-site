@@ -28,13 +28,13 @@ export async function GET(request: NextRequest) {
     const apiKey = process.env.BRICKPAY_API_KEY;
     const apiUrl = process.env.BRICKPAY_API_URL || "https://brickpay.io/api";
 
-    // Mock mode for demo
-    if (!apiKey || token.startsWith("mock_")) {
+    // Mock mode for demo or development
+    if (!apiKey || token.startsWith("mock_") || process.env.NODE_ENV === "development") {
       console.log("[v0] BrickPay status check in mock mode");
       
       // Simulate payment completion after a few checks (for demo purposes)
       // In real implementation, this would be based on actual payment status
-      const mockCompleted = Math.random() > 0.7; // 30% chance of completion per check
+      const mockCompleted = Math.random() > 0.5; // 50% chance of completion per check
       
       return NextResponse.json({
         success: true,

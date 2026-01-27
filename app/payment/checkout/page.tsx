@@ -9,7 +9,7 @@ import {
   Clock,
   CheckCircle,
   XCircle,
-  Bitcoin,
+  DollarSign,
   Wallet,
   ArrowLeft,
   Copy,
@@ -23,23 +23,39 @@ type PaymentStatus = "loading" | "pending" | "processing" | "completed" | "faile
 export default function CheckoutPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const token = searchParams.get("token");
+  const sessionId = searchParams.get("session");
+  const token = searchParams.get("token"); // Fallback for legacy BrickPay URLs
 
   const [status, setStatus] = useState<PaymentStatus>("loading");
   const [paymentData, setPaymentData] = useState<{
-    amount_cents: number;
+    amount: number;
     currency: string;
     paid_at: string | null;
+    customer_email?: string;
   } | null>(null);
   const [copied, setCopied] = useState(false);
   const [pollCount, setPollCount] = useState(0);
 
-  // Mock crypto address for demo
-  const cryptoAddress = "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh";
-
   useEffect(() => {
-    if (!token) {
+    const currentSessionId = sessionId || token;
+    const mockSuccess = searchParams.get("mock_success");
+    
+    if (!currentSessionId) {
       setStatus("failed");
+      return;
+    }
+
+    // Handle mock success from redirect
+    if (mockSuccess === "true") {
+      setStatus("completed");
+      setPaymentData({
+        amount: 7.90,
+        currency: "USD",
+        paid_at: new Date().toISOString(),
+      });
+      setTimeout(() => {
+        router.push(`/payment/success?session=${currentSessionId}`);
+      }, 2000);
       return;
     }
 
@@ -66,29 +82,40 @@ export default function CheckoutPage() {
       clearInterval(interval);
       clearTimeout(timeout);
     };
-  }, [token, status]);
+  }, [sessionId, token, status, searchParams, router]);
 
   const checkPaymentStatus = async () => {
+    const currentSessionId = sessionId || token;
+    if (!currentSessionId) return;
+
     try {
-      const response = await fetch(`/api/payments/check-status?token=${token}`);
+      // Try MoneyMotion first, then fallback to BrickPay
+      let response;
+      if (sessionId) {
+        response = await fetch(`/api/payments/moneymotion/check-status?session=${currentSessionId}`);
+      } else {
+        response = await fetch(`/api/payments/check-status?token=${currentSessionId}`);
+      }
+      
       const data = await response.json();
 
       if (data.success) {
-        if (data.paid) {
+        if (data.paid || data.status === "completed") {
           setStatus("completed");
           setPaymentData({
-            amount_cents: data.amount_cents,
+            amount: data.amount || (data.amount_cents ? data.amount_cents / 100 : 0),
             currency: data.currency,
             paid_at: data.paid_at,
+            customer_email: data.customer_email,
           });
 
           // Redirect to success page after 2 seconds
           setTimeout(() => {
-            router.push(`/payment/success?token=${token}`);
+            router.push(`/payment/success?session=${currentSessionId}`);
           }, 2000);
         } else if (data.status === "expired") {
           setStatus("expired");
-        } else if (data.status === "cancelled") {
+        } else if (data.status === "cancelled" || data.status === "failed") {
           setStatus("failed");
         } else {
           setStatus("pending");
@@ -109,21 +136,23 @@ export default function CheckoutPage() {
 
   // Simulate payment completion for demo
   const simulatePayment = async () => {
+    const currentSessionId = sessionId || token;
     setStatus("processing");
     setTimeout(() => {
       setStatus("completed");
       setPaymentData({
-        amount_cents: 790,
+        amount: 7.90,
         currency: "USD",
         paid_at: new Date().toISOString(),
       });
       setTimeout(() => {
-        router.push(`/payment/success?token=${token}`);
+        router.push(`/payment/success?session=${currentSessionId}`);
       }, 2000);
     }, 2000);
   };
 
-  if (!token) {
+  const currentSessionId = sessionId || token;
+  if (!currentSessionId) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
         <div className="bg-[#111111] border border-[#262626] rounded-2xl p-8 max-w-md w-full text-center">
@@ -159,11 +188,11 @@ export default function CheckoutPage() {
           <div className="bg-gradient-to-r from-[#dc2626]/20 to-transparent p-6 border-b border-[#262626]">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-xl bg-[#dc2626] flex items-center justify-center">
-                <Bitcoin className="w-6 h-6 text-white" />
+                <DollarSign className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-white">Crypto Payment</h1>
-                <p className="text-white/60 text-sm">Powered by BrickPay</p>
+                <h1 className="text-xl font-bold text-white">Secure Payment</h1>
+                <p className="text-white/60 text-sm">Powered by MoneyMotion</p>
               </div>
             </div>
           </div>
@@ -241,56 +270,49 @@ export default function CheckoutPage() {
                 {/* Amount */}
                 <div className="bg-[#0a0a0a] rounded-xl p-4 mb-4">
                   <p className="text-white/60 text-sm mb-1">Amount to pay</p>
-                  <p className="text-3xl font-bold text-white">$7.90 <span className="text-lg text-white/60">USD</span></p>
+                  <p className="text-3xl font-bold text-white">${paymentData?.amount?.toFixed(2) || "7.90"} <span className="text-lg text-white/60">USD</span></p>
                 </div>
 
-                {/* Crypto Address */}
-                <div className="bg-[#0a0a0a] rounded-xl p-4 mb-4">
-                  <p className="text-white/60 text-sm mb-2">Send Bitcoin to:</p>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 text-[#dc2626] text-sm font-mono bg-[#1a1a1a] rounded-lg p-3 break-all">
-                      {cryptoAddress}
-                    </code>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={copyAddress}
-                      className="flex-shrink-0 border-[#262626] hover:bg-[#dc2626] hover:border-[#dc2626] hover:text-white bg-transparent"
-                    >
-                      {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                    </Button>
-                  </div>
+                {/* Payment Instructions */}
+                <div className="bg-[#0a0a0a] rounded-xl p-4 mb-6">
+                  <p className="text-white/60 text-sm mb-2">Payment Instructions:</p>
+                  <ul className="text-white text-sm space-y-1 list-disc list-inside">
+                    <li>Click the button below to proceed to MoneyMotion checkout</li>
+                    <li>Complete your payment securely</li>
+                    <li>You will be redirected back after payment</li>
+                  </ul>
                 </div>
 
-                {/* QR Code placeholder */}
-                <div className="bg-[#0a0a0a] rounded-xl p-4 mb-6 flex flex-col items-center">
-                  <div className="w-40 h-40 bg-white rounded-lg flex items-center justify-center mb-3">
-                    <div className="w-32 h-32 bg-[#0a0a0a] rounded grid grid-cols-8 gap-0.5 p-2">
-                      {Array.from({ length: 64 }).map((_, i) => (
-                        <div
-                          key={i}
-                          className={`aspect-square ${Math.random() > 0.5 ? "bg-black" : "bg-white"}`}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  <p className="text-white/60 text-sm">Scan QR code to pay</p>
-                </div>
+                {/* Proceed to MoneyMotion */}
+                <Button
+                  onClick={() => {
+                    // Redirect to MoneyMotion checkout URL
+                    const checkoutUrl = sessionId ? 
+                      `${window.location.origin}/api/payments/moneymotion/redirect?session=${sessionId}` :
+                      `/api/payments/brickpay/redirect?token=${token}`;
+                    window.location.href = checkoutUrl;
+                  }}
+                  className="w-full bg-[#dc2626] hover:bg-[#ef4444] text-white py-6"
+                >
+                  <Wallet className="w-5 h-5 mr-2" />
+                  Proceed to Payment
+                </Button>
 
                 {/* Demo: Simulate payment button */}
                 <Button
                   onClick={simulatePayment}
-                  className="w-full bg-[#dc2626] hover:bg-[#ef4444] text-white py-6"
+                  variant="outline"
+                  className="w-full border-[#262626] hover:bg-[#1a1a1a] text-white bg-transparent mt-3"
                 >
-                  <Wallet className="w-5 h-5 mr-2" />
-                  Simulate Payment (Demo)
+                  <CreditCard className="w-5 h-5 mr-2" />
+                  Simulate Payment (Demo Only)
                 </Button>
 
                 {/* Security note */}
                 <div className="flex items-center gap-2 mt-4 p-3 bg-[#0a0a0a] rounded-lg">
                   <Shield className="w-5 h-5 text-[#dc2626]" />
                   <p className="text-white/60 text-sm">
-                    Secure payment powered by BrickPay
+                    Secure payment powered by MoneyMotion
                   </p>
                 </div>
               </>

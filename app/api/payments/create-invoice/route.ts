@@ -36,9 +36,9 @@ export async function POST(request: NextRequest) {
     const apiKey = process.env.BRICKPAY_API_KEY;
     const apiUrl = process.env.BRICKPAY_API_URL || "https://brickpay.io/api";
 
-    // If no API key, use mock mode for demo
-    if (!apiKey) {
-      console.log("[v0] BrickPay running in mock mode - no API key configured");
+    // If no API key or in development mode, use mock mode for demo
+    if (!apiKey || process.env.NODE_ENV === "development") {
+      console.log("[v0] BrickPay running in mock mode - no API key configured or in development");
       
       const mockInvoiceId = Math.floor(Math.random() * 1000000);
       const mockPublicToken = `mock_${Date.now()}_${Math.random().toString(36).substring(7)}`;

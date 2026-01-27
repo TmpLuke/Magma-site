@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { paymentSessions } from "../create-session/route";
 import type { MoneyMotionWebhookPayload } from "@/lib/moneymotion-types";
+import crypto from "crypto";
 
 // Generate a unique license key
 function generateLicenseKey(productSlug: string, duration: string): string {
@@ -27,9 +28,38 @@ function calculateExpiryDate(duration: string): Date {
   }
 }
 
+// Verify webhook signature
+function verifyWebhookSignature(payload: string, signature: string | null, secret: string): boolean {
+  if (!signature) return false;
+  
+  const expectedSignature = crypto
+    .createHmac('sha256', secret)
+    .update(payload)
+    .digest('hex');
+  
+  return signature === expectedSignature;
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const payload: MoneyMotionWebhookPayload = await request.json();
+    const webhookSecret = process.env.MONEYMOTION_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      console.error("[MoneyMotion Webhook] Webhook secret not configured");
+      return NextResponse.json({ error: "Webhook secret not configured" }, { status: 500 });
+    }
+
+    // Get the raw body and signature
+    const rawBody = await request.text();
+    const signature = request.headers.get('x-webhook-signature');
+    
+    // Verify webhook signature
+    if (!verifyWebhookSignature(rawBody, signature, webhookSecret)) {
+      console.error("[MoneyMotion Webhook] Invalid webhook signature");
+      return NextResponse.json({ error: "Invalid webhook signature" }, { status: 401 });
+    }
+
+    // Parse the JSON payload
+    const payload: MoneyMotionWebhookPayload = JSON.parse(rawBody);
     const supabase = await createClient();
 
     console.log("[MoneyMotion Webhook] Event received:", payload.event);

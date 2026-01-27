@@ -1,11 +1,26 @@
 "use client";
 
 import { ArrowRight, Play } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
+
+// Generate consistent particle positions
+const generateParticles = () => {
+  const particles = [];
+  for (let i = 0; i < 20; i++) {
+    particles.push({
+      left: (i * 5.3 + 3.7) % 100,
+      top: (i * 7.1 + 2.3) % 100,
+      delay: (i * 0.7) % 5,
+      duration: 5 + (i * 0.9) % 10,
+    });
+  }
+  return particles;
+};
 
 export function Hero() {
   const [isVisible, setIsVisible] = useState(false);
+  const particles = useMemo(() => generateParticles(), []);
 
   useEffect(() => {
     setIsVisible(true);
@@ -21,15 +36,15 @@ export function Hero() {
       
       {/* Floating particles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {[...Array(20)].map((_, i) => (
+        {particles.map((particle, i) => (
           <div
             key={i}
             className="absolute w-1 h-1 bg-[#dc2626]/30 rounded-full animate-float"
             style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 5}s`,
-              animationDuration: `${5 + Math.random() * 10}s`,
+              left: `${particle.left}%`,
+              top: `${particle.top}%`,
+              animationDelay: `${particle.delay}s`,
+              animationDuration: `${particle.duration}s`,
             }}
           />
         ))}

@@ -8,19 +8,12 @@ import type {
   Notification,
 } from "./admin-types";
 
+// Production: All data comes from database
+// No mock data - admin panel will show empty states until products are added
 export const mockProducts: Product[] = [];
 export const mockOrders: Order[] = [];
 export const mockLicenseKeys: LicenseKey[] = [];
 export const mockCoupons: Coupon[] = [];
 export const mockWebhooks: Webhook[] = [];
 export const mockTeamMembers: TeamMember[] = [];
-export const mockNotifications: Notification[] = [
-  {
-    id: "1",
-    type: "order",
-    title: "New Order",
-    message: "Order #MC-2026-1234 received",
-    read: false,
-    createdAt: new Date(),
-  },
-];
+export const mockNotifications: Notification[] = [];

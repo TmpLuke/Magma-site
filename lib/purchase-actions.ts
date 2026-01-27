@@ -2,35 +2,11 @@
 
 import { createClient } from "@/lib/supabase/server";
 
-// Generate a unique license key
-function generateLicenseKey(productSlug: string, duration: string): string {
-  const prefix = productSlug.slice(0, 4).toUpperCase();
-  const durationCode = duration.includes("Lifetime") ? "LT" : duration.includes("30") ? "30D" : duration.includes("7") ? "7D" : "1D";
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const randomPart = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-  const randomPart2 = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-  return `MGMA-${prefix}-${durationCode}-${randomPart}-${randomPart2}`;
-}
-
 // Generate order number
 function generateOrderNumber(): string {
   const year = new Date().getFullYear();
   const orderNum = Math.floor(Math.random() * 9000) + 1000;
   return `MC-${year}-${orderNum}`;
-}
-
-// Calculate expiry date based on duration
-function calculateExpiryDate(duration: string): Date {
-  const now = new Date();
-  if (duration.includes("Lifetime")) {
-    return new Date(now.getTime() + 100 * 365 * 24 * 60 * 60 * 1000); // 100 years
-  } else if (duration.includes("30")) {
-    return new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-  } else if (duration.includes("7")) {
-    return new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-  } else {
-    return new Date(now.getTime() + 24 * 60 * 60 * 1000); // 1 day
-  }
 }
 
 export interface PurchaseData {
@@ -130,20 +106,9 @@ export async function processPurchase(data: PurchaseData): Promise<PurchaseResul
     const apiKey = process.env.MONEYMOTION_API_KEY;
     
     if (!apiKey) {
-      // Mock mode
-      const mockSessionId = `mm_sess_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-      
-      await supabase.from("orders").update({
-        payment_method: "moneymotion",
-      }).eq("id", order.id);
-      
-      return {
-        success: true,
-        orderId: order.id,
-        orderNumber,
-        checkoutUrl: `/payment/checkout?session=${mockSessionId}&order=${orderNumber}`,
-        sessionId: mockSessionId,
-      };
+      console.error("[Purchase] MoneyMotion API key not configured");
+      await supabase.from("orders").delete().eq("id", order.id);
+      return { success: false, error: "Payment system not configured" };
     }
     
     // Real MoneyMotion integration
@@ -224,69 +189,8 @@ export async function processPurchase(data: PurchaseData): Promise<PurchaseResul
   }
 }
 
-// Email sending function (stores in database and triggers email send)
-async function sendPurchaseEmail(data: {
-  customerEmail: string;
-  orderNumber: string;
-  productName: string;
-  duration: string;
-  licenseKey: string;
-  expiresAt: Date;
-  totalPaid: number;
-  orderId?: string;
-}) {
-  try {
-    const supabase = await createClient();
-    
-    // Store email in outbound_emails table
-    const { error } = await supabase
-      .from("outbound_emails")
-      .insert({
-        order_id: data.orderId || null,
-        to_email: data.customerEmail,
-        subject: `Your Magma Cheats Order - ${data.orderNumber}`,
-        template: "purchase_confirmation",
-        template_data: {
-          orderNumber: data.orderNumber,
-          productName: data.productName,
-          duration: data.duration,
-          licenseKey: data.licenseKey,
-          expiresAt: data.expiresAt.toISOString(),
-          totalPaid: data.totalPaid.toFixed(2),
-        },
-        status: "pending",
-      });
-    
-    if (error) {
-      console.log("[Email] Could not queue email:", error.message);
-      return false;
-    }
-    
-    // Trigger email processing immediately (fire and forget)
-    try {
-      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL 
-        ? `https://${process.env.VERCEL_URL}` 
-        : "http://localhost:3000";
-      
-      fetch(`${baseUrl}/api/email/send`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      }).catch(() => {
-        // Silently fail - email will be processed by next cron job or manual trigger
-      });
-    } catch {
-      // Ignore errors in triggering - email is queued and will be processed
-    }
-    
-    return true;
-  } catch (error) {
-    console.error("[Email] Error queueing email:", error);
-    return false;
-  }
-}
-
 // Validate coupon code
-export async function validateCoupon(code: string, productId?: string): Promise<{
+export async function validateCoupon(code: string): Promise<{
   valid: boolean;
   discount?: number;
   type?: "percentage" | "fixed";

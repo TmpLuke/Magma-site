@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyWebhookSignature } from "@/lib/moneymotion";
 import { createClient } from "@/lib/supabase/server";
+import { sendPurchaseEmail } from "@/lib/email";
 
 interface WebhookPayload {
   checkoutSession: {
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest) {
 
     switch (payload.event) {
       case "checkout_session:complete": {
-        const { checkoutSession, customer } = payload;
+        const { customer } = payload;
 
         // Find pending order by email
         const { data: orders } = await supabase
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
         const licenseKey = generateLicenseKey(order.product_name, order.duration);
         const expiresAt = calculateExpiryDate(order.duration);
 
-        await supabase.from("licenses").insert({
+        const { error: licenseError } = await supabase.from("licenses").insert({
           license_key: licenseKey,
           order_id: order.id,
           product_id: order.product_id,
@@ -89,7 +90,30 @@ export async function POST(request: NextRequest) {
           expires_at: expiresAt.toISOString(),
         });
 
+        if (licenseError) {
+          console.error("[Webhook] Failed to create license:", licenseError);
+        }
+
         console.log("[Webhook] Order completed:", order.order_number, "License:", licenseKey);
+
+        // Send purchase confirmation email
+        const emailResult = await sendPurchaseEmail({
+          customerEmail: order.customer_email,
+          orderNumber: order.order_number,
+          productName: order.product_name,
+          duration: order.duration,
+          licenseKey,
+          expiresAt,
+          totalPaid: order.amount,
+        });
+
+        if (!emailResult.success) {
+          console.error("[Webhook] Failed to send email:", emailResult.error);
+          // Don't fail the webhook - order is still completed
+        } else {
+          console.log("[Webhook] Email sent successfully:", emailResult.emailId);
+        }
+
         break;
       }
 

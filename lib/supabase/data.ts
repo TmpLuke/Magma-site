@@ -1,7 +1,6 @@
 "use server";
 
 import { createClient } from "./server";
-import { mockProducts } from "@/lib/admin-mock-data";
 
 // Helper to transform database product with related data
 function transformProduct(product: any, pricing: any[], features: any[], requirements: any[]) {
@@ -58,9 +57,14 @@ export async function getProducts() {
       .select("*")
       .order("name");
     
-    if (productsError || !products || products.length === 0) {
-      console.log("[v0] Using mock products, DB error:", productsError?.message);
-      return mockProducts;
+    if (productsError) {
+      console.error("[Products] Database error:", productsError.message);
+      return [];
+    }
+
+    if (!products || products.length === 0) {
+      // No products yet - return empty array (admin will add products)
+      return [];
     }
 
     // Fetch pricing, features, and requirements for all products
@@ -81,8 +85,8 @@ export async function getProducts() {
       return transformProduct(product, pricing, features, requirements);
     });
   } catch (e) {
-    console.error("[v0] Exception fetching products:", e);
-    return mockProducts;
+    console.error("[Products] Exception:", e);
+    return [];
   }
 }
 
@@ -98,9 +102,7 @@ export async function getProductBySlug(slug: string) {
       .single();
 
     if (productError || !product) {
-      // Fallback to mock data
-      const mockProduct = mockProducts.find((p) => p.slug === slug);
-      return mockProduct || null;
+      return null;
     }
 
     // Fetch related data
@@ -117,9 +119,8 @@ export async function getProductBySlug(slug: string) {
       requirementsResult.data || []
     );
   } catch (e) {
-    console.error("[v0] Exception fetching product:", e);
-    const mockProduct = mockProducts.find((p) => p.slug === slug);
-    return mockProduct || null;
+    console.error("[Products] Exception fetching product:", e);
+    return null;
   }
 }
 
@@ -327,16 +328,6 @@ export async function createCoupon(coupon: {
 
 // Reviews
 export async function getReviews() {
-  // Mock reviews fallback
-  const mockReviews = [
-    { id: "rev_1", username: "Mabz", avatar: "M", rating: 5, text: "Magma Cheats is the best! Been using they're cheat and no bans. Best support team!", verified: true, created_at: new Date().toISOString() },
-    { id: "rev_2", username: "Jibegz", avatar: "J", rating: 5, text: "Mufasa is very quick when responding and very helpful. The best cheat by far!", verified: true, created_at: new Date().toISOString() },
-    { id: "rev_3", username: "Markky15_", avatar: "M", rating: 5, text: "Purchased the key and the cheat itself worked perfectly for me. The setup was smooth and everything performed as expected.", verified: true, created_at: new Date().toISOString() },
-    { id: "rev_4", username: "Milanek", avatar: "M", rating: 5, text: "Support replied to my ticket very quickly, explained everything clearly and thanks to them I can enjoy the product!", verified: true, created_at: new Date().toISOString() },
-    { id: "rev_5", username: "GamerPro", avatar: "G", rating: 5, text: "Amazing product with instant delivery. Customer support is top notch!", verified: true, created_at: new Date().toISOString() },
-    { id: "rev_6", username: "NightHawk", avatar: "N", rating: 4, text: "Great features and easy to use. Would definitely recommend to others.", verified: true, created_at: new Date().toISOString() },
-  ];
-
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -345,19 +336,15 @@ export async function getReviews() {
       .order("created_at", { ascending: false });
     
     if (error) {
-      console.error("[v0] Error fetching reviews:", error);
-      return mockReviews;
+      console.error("[Reviews] Database error:", error);
+      return [];
     }
     
-    if (!data || data.length === 0) {
-      console.log("[v0] No reviews in database, using mock data");
-      return mockReviews;
-    }
-    
-    return data;
+    // Return real reviews from database, or empty array if none exist
+    return data || [];
   } catch (e) {
-    console.error("[v0] Exception fetching reviews:", e);
-    return mockReviews;
+    console.error("[Reviews] Exception:", e);
+    return [];
   }
 }
 
@@ -461,16 +448,6 @@ export async function updateSettings(updates: Record<string, any>) {
 
 // Stats
 export async function getStats() {
-  // Default fallback stats
-  const defaultStats = {
-    totalProducts: 6,
-    totalOrders: 1247,
-    totalRevenue: 45890,
-    activeLicenses: 892,
-    totalReviews: 156,
-    avgRating: "4.8",
-  };
-
   try {
     const supabase = await createClient();
     
@@ -481,12 +458,6 @@ export async function getStats() {
       supabase.from("reviews").select("id, rating", { count: "exact" }),
     ]);
     
-    // If any query fails or returns no data, use defaults
-    if (!productsResult.data && !ordersResult.data) {
-      console.log("[v0] Using default stats");
-      return defaultStats;
-    }
-    
     const totalRevenue = ordersResult.data
       ?.filter((o) => o.status === "completed")
       .reduce((sum, o) => sum + (o.amount || 0), 0) || 0;
@@ -494,18 +465,25 @@ export async function getStats() {
     const activeLicenses = licensesResult.data?.filter((l) => l.status === "active").length || 0;
     const avgRating = reviewsResult.data?.length
       ? (reviewsResult.data.reduce((sum, r) => sum + r.rating, 0) / reviewsResult.data.length).toFixed(1)
-      : "4.8";
+      : "0";
     
     return {
-      totalProducts: productsResult.count || mockProducts.length,
-      totalOrders: ordersResult.count || defaultStats.totalOrders,
-      totalRevenue: totalRevenue || defaultStats.totalRevenue,
-      activeLicenses: activeLicenses || defaultStats.activeLicenses,
-      totalReviews: reviewsResult.count || defaultStats.totalReviews,
+      totalProducts: productsResult.count || 0,
+      totalOrders: ordersResult.count || 0,
+      totalRevenue: totalRevenue,
+      activeLicenses: activeLicenses,
+      totalReviews: reviewsResult.count || 0,
       avgRating,
     };
   } catch (e) {
-    console.error("[v0] Exception fetching stats:", e);
-    return defaultStats;
+    console.error("[Stats] Exception:", e);
+    return {
+      totalProducts: 0,
+      totalOrders: 0,
+      totalRevenue: 0,
+      activeLicenses: 0,
+      totalReviews: 0,
+      avgRating: "0",
+    };
   }
 }

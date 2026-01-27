@@ -34,6 +34,35 @@ export function PopularCheats({ products }: PopularCheatsProps) {
   // Take up to 12 products for carousel
   const displayProducts = products.slice(0, 12);
 
+  // Show empty state if no products
+  if (displayProducts.length === 0) {
+    return (
+      <section ref={sectionRef} className="py-16 sm:py-24 bg-[#0a0a0a]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-10 sm:mb-16">
+            <h2 className="text-4xl sm:text-5xl md:text-6xl font-black text-white mb-4">
+              Your Cheats.
+            </h2>
+            <p className="text-white/50 text-base sm:text-lg">
+              Beautifully simple. Unbelievably powerful.
+            </p>
+          </div>
+          <div className="text-center py-16">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#dc2626]/10 mb-4">
+              <svg className="w-8 h-8 text-[#dc2626]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">No Products Yet</h3>
+            <p className="text-white/50 max-w-md mx-auto">
+              Products will appear here once they are added through the admin panel.
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {

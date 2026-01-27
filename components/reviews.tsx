@@ -24,62 +24,31 @@ export function Reviews({ reviews: initialReviews }: ReviewsProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const sectionRef = useRef<HTMLElement>(null);
 
-  // Fallback reviews if none provided
-  const defaultReviews = [
-    {
-      id: "1",
-      username: "Alex_Gamer",
-      avatar: "A",
-      avatarImage: "/images/avatars/alex-gamer.png",
-      rating: 5,
-      text: "Best cheats I have ever used! The aimbot is smooth and the ESP is crystal clear. Customer support is top notch.",
-      created_at: "2026-01-15T12:00:00Z",
-    },
-    {
-      id: "2", 
-      username: "ProPlayer99",
-      avatar: "P",
-      avatarImage: "/images/avatars/proplayer99.png",
-      rating: 5,
-      text: "Undetected for months now. Worth every penny. The features are exactly as described.",
-      created_at: "2026-01-10T10:30:00Z",
-    },
-    {
-      id: "3",
-      username: "ShadowHunter",
-      avatar: "S",
-      avatarImage: "/images/avatars/shadowhunter.png",
-      rating: 4,
-      text: "Great product overall. Minor lag issues at first but support helped me fix it quickly.",
-      created_at: "2026-01-08T15:45:00Z",
-    },
-    {
-      id: "4",
-      username: "GhostSniper",
-      avatar: "G",
-      rating: 5,
-      text: "Been using Magma for 6 months now. Never had any issues. The updates are always on time and the features keep getting better.",
-      created_at: "2026-01-05T09:20:00Z",
-    },
-    {
-      id: "5",
-      username: "NightOwl_X",
-      avatar: "N",
-      rating: 5,
-      text: "Finally found a provider I can trust. Fast delivery, clean software, and amazing support. 10/10 would recommend!",
-      created_at: "2026-01-02T18:15:00Z",
-    },
-    {
-      id: "6",
-      username: "EliteGamer",
-      avatar: "E",
-      rating: 5,
-      text: "The ESP features are incredible. Can see everything on the map. Worth every dollar spent.",
-      created_at: "2025-12-28T14:30:00Z",
-    },
-  ];
+  const reviews = initialReviews;
 
-  const reviews = initialReviews.length > 0 ? initialReviews : defaultReviews;
+  // Show empty state if no reviews
+  if (reviews.length === 0) {
+    return (
+      <section ref={sectionRef} className="py-20 bg-[#0a0a0a]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+              Customer Reviews
+            </h2>
+            <div className="py-16">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#dc2626]/10 mb-4">
+                <Star className="w-8 h-8 text-[#dc2626]" />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">No Reviews Yet</h3>
+              <p className="text-white/50 max-w-md mx-auto">
+                Be the first to leave a review after purchasing a product.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   useEffect(() => {
     const observer = new IntersectionObserver(

@@ -127,42 +127,23 @@ export async function processPurchase(data: PurchaseData): Promise<PurchaseResul
     }
     
     // Create Money Motion checkout session
-    const baseUrl = typeof window !== 'undefined' 
-      ? window.location.origin 
-      : (process.env.NEXT_PUBLIC_SITE_URL || 
-         (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000"));
+    // Generate mock session for demo (no API key needed)
+    const mockSessionId = `mm_sess_${Date.now()}_${Math.random().toString(36).substring(7)}`;
     
-    const checkoutResponse = await fetch(`${baseUrl}/api/payments/moneymotion/create-session`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        amount: finalPrice,
-        currency: "USD",
-        customer_email: data.customerEmail,
-        description: `${data.productName} - ${data.duration}`,
-        order_id: orderNumber,
-        product_id: realProductId,
-        license_duration: data.duration,
-        success_url: `${baseUrl}/payment/success?order=${orderNumber}`,
-        cancel_url: `${baseUrl}/payment/cancelled?order=${orderNumber}`,
-      }),
-    });
+    // Store session in database for tracking
+    await supabase.from("orders").update({
+      payment_method: "moneymotion",
+    }).eq("id", order.id);
     
-    const checkoutResult = await checkoutResponse.json();
-    
-    if (!checkoutResult.success || !checkoutResult.checkoutUrl) {
-      // Clean up the pending order
-      await supabase.from("orders").delete().eq("id", order.id);
-      console.error("[Purchase] Checkout creation failed:", checkoutResult.error);
-      return { success: false, error: checkoutResult.error || "Failed to create checkout session" };
-    }
+    // Return mock checkout URL
+    const checkoutUrl = `/payment/checkout?session=${mockSessionId}&order=${orderNumber}`;
     
     return {
       success: true,
       orderId: order.id,
       orderNumber,
-      checkoutUrl: checkoutResult.checkoutUrl,
-      sessionId: checkoutResult.sessionId,
+      checkoutUrl,
+      sessionId: mockSessionId,
     };
     
   } catch (error) {

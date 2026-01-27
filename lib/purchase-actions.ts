@@ -126,40 +126,31 @@ export async function processPurchase(data: PurchaseData): Promise<PurchaseResul
       return { success: false, error: "Failed to create order" };
     }
     
-    // Create Money Motion checkout session
+    // Create MoneyMotion checkout session
     const apiKey = process.env.MONEYMOTION_API_KEY;
     
-    console.log("[Purchase] API Key present:", !!apiKey);
-    
     if (!apiKey) {
-      // Mock mode - redirect to our own checkout page
-      console.log("[Purchase] Using mock mode");
+      // Mock mode
       const mockSessionId = `mm_sess_${Date.now()}_${Math.random().toString(36).substring(7)}`;
       
       await supabase.from("orders").update({
         payment_method: "moneymotion",
       }).eq("id", order.id);
       
-      const checkoutUrl = `/payment/checkout?session=${mockSessionId}&order=${orderNumber}`;
-      
-      console.log("[Purchase] Mock checkout URL:", checkoutUrl);
-      
       return {
         success: true,
         orderId: order.id,
         orderNumber,
-        checkoutUrl,
+        checkoutUrl: `/payment/checkout?session=${mockSessionId}&order=${orderNumber}`,
         sessionId: mockSessionId,
       };
     }
     
-    // Real MoneyMotion API integration
+    // Real MoneyMotion integration
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 
-        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
       
-      // Import the MoneyMotion client
-      const { createCheckoutSession } = await import("@/lib/moneymotion-client");
+      const { createCheckoutSession } = await import("@/lib/moneymotion");
       
       const result = await createCheckoutSession({
         description: `${data.productName} - ${data.duration}`,
@@ -178,40 +169,30 @@ export async function processPurchase(data: PurchaseData): Promise<PurchaseResul
       });
       
       if (!result.success || !result.checkoutSessionId) {
-        // Clean up the pending order
         await supabase.from("orders").delete().eq("id", order.id);
-        
-        return { 
-          success: false, 
-          error: result.error || "Failed to create checkout session" 
+        return {
+          success: false,
+          error: result.error || "Failed to create checkout session",
         };
       }
       
-      // Update order with session ID
       await supabase.from("orders").update({
         payment_method: "moneymotion",
       }).eq("id", order.id);
-      
-      // MoneyMotion checkout URL format
-      const checkoutUrl = `https://moneymotion.io/checkout/${result.checkoutSessionId}`;
       
       return {
         success: true,
         orderId: order.id,
         orderNumber,
-        checkoutUrl,
+        checkoutUrl: result.checkoutUrl,
         sessionId: result.checkoutSessionId,
       };
-      
     } catch (error) {
       console.error("[Purchase] MoneyMotion error:", error);
-      
-      // Clean up the pending order
       await supabase.from("orders").delete().eq("id", order.id);
-      
-      return { 
-        success: false, 
-        error: "Failed to create checkout session" 
+      return {
+        success: false,
+        error: "Failed to create checkout session",
       };
     }
     

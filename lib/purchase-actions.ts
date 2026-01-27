@@ -129,8 +129,11 @@ export async function processPurchase(data: PurchaseData): Promise<PurchaseResul
     // Create Money Motion checkout session
     const apiKey = process.env.MONEYMOTION_API_KEY;
     
+    console.log("[Purchase] API Key present:", !!apiKey);
+    
     if (!apiKey) {
       // Mock mode - redirect to our own checkout page
+      console.log("[Purchase] Using mock mode");
       const mockSessionId = `mm_sess_${Date.now()}_${Math.random().toString(36).substring(7)}`;
       
       await supabase.from("orders").update({
@@ -138,6 +141,8 @@ export async function processPurchase(data: PurchaseData): Promise<PurchaseResul
       }).eq("id", order.id);
       
       const checkoutUrl = `/payment/checkout?session=${mockSessionId}&order=${orderNumber}`;
+      
+      console.log("[Purchase] Mock checkout URL:", checkoutUrl);
       
       return {
         success: true,
@@ -153,49 +158,32 @@ export async function processPurchase(data: PurchaseData): Promise<PurchaseResul
       const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 
         (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
       
-      const moneyMotionResponse = await fetch("https://api.moneymotion.io/createCheckoutSession", {
-        method: "POST",
-        headers: {
-          "X-API-Key": apiKey,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          amount: finalPrice,
-          currency: "USD",
-          customer_email: data.customerEmail,
-          description: `${data.productName} - ${data.duration}`,
-          metadata: {
-            order_id: orderNumber,
-            product_id: realProductId,
-            license_duration: data.duration,
+      // Import the MoneyMotion client
+      const { createCheckoutSession } = await import("@/lib/moneymotion-client");
+      
+      const result = await createCheckoutSession({
+        description: `${data.productName} - ${data.duration}`,
+        successUrl: `${baseUrl}/payment/success?order=${orderNumber}`,
+        cancelUrl: `${baseUrl}/payment/cancelled?order=${orderNumber}`,
+        failureUrl: `${baseUrl}/payment/cancelled?order=${orderNumber}`,
+        customerEmail: data.customerEmail,
+        lineItems: [
+          {
+            name: data.productName,
+            description: `${data.productName} - ${data.duration}`,
+            pricePerItemInCents: Math.round(finalPrice * 100),
+            quantity: 1,
           },
-          success_url: `${baseUrl}/payment/success?order=${orderNumber}`,
-          cancel_url: `${baseUrl}/payment/cancelled?order=${orderNumber}`,
-        }),
+        ],
       });
       
-      if (!moneyMotionResponse.ok) {
-        const errorText = await moneyMotionResponse.text();
-        console.error("[Purchase] MoneyMotion API error:", moneyMotionResponse.status, errorText);
-        
+      if (!result.success || !result.checkoutSessionId) {
         // Clean up the pending order
         await supabase.from("orders").delete().eq("id", order.id);
         
         return { 
           success: false, 
-          error: `Payment service error: ${moneyMotionResponse.status}` 
-        };
-      }
-      
-      const moneyMotionResult = await moneyMotionResponse.json();
-      
-      if (!moneyMotionResult.success || !moneyMotionResult.sessionId || !moneyMotionResult.checkoutUrl) {
-        // Clean up the pending order
-        await supabase.from("orders").delete().eq("id", order.id);
-        
-        return { 
-          success: false, 
-          error: moneyMotionResult.error || "Failed to create checkout session" 
+          error: result.error || "Failed to create checkout session" 
         };
       }
       
@@ -204,12 +192,15 @@ export async function processPurchase(data: PurchaseData): Promise<PurchaseResul
         payment_method: "moneymotion",
       }).eq("id", order.id);
       
+      // MoneyMotion checkout URL format
+      const checkoutUrl = `https://moneymotion.io/checkout/${result.checkoutSessionId}`;
+      
       return {
         success: true,
         orderId: order.id,
         orderNumber,
-        checkoutUrl: moneyMotionResult.checkoutUrl, // This will be like: https://moneymotion.io/checkout/SESSION_ID
-        sessionId: moneyMotionResult.sessionId,
+        checkoutUrl,
+        sessionId: result.checkoutSessionId,
       };
       
     } catch (error) {

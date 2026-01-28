@@ -32,7 +32,6 @@ interface TeamFormData {
   name: string;
   email: string;
   username: string;
-  role: string;
   permissions: string[];
 }
 
@@ -48,7 +47,6 @@ export default function TeamPage() {
     name: "",
     email: "",
     username: "",
-    role: "Support",
     permissions: [],
   });
   const { toast } = useToast();
@@ -82,8 +80,7 @@ export default function TeamPage() {
       const result = await inviteTeamMember({
         name: formData.name,
         email: formData.email,
-        username: formData.username,
-        role: formData.role,
+        username: formData.username || undefined,
         permissions: formData.permissions,
       });
 
@@ -121,8 +118,7 @@ export default function TeamPage() {
       const result = await updateTeamMember(selectedMember.id, {
         name: formData.name,
         email: formData.email,
-        username: formData.username,
-        role: formData.role,
+        username: formData.username || undefined,
         permissions: formData.permissions,
       });
 
@@ -191,7 +187,6 @@ export default function TeamPage() {
       name: member.name,
       email: member.email,
       username: member.username ?? "",
-      role: member.role,
       permissions: Array.isArray(member.permissions) ? member.permissions : [],
     });
     setShowEditModal(true);
@@ -207,7 +202,6 @@ export default function TeamPage() {
       name: "",
       email: "",
       username: "",
-      role: "Support",
       permissions: [],
     });
   }
@@ -582,7 +576,7 @@ export default function TeamPage() {
 
       {/* Add Member Modal */}
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-        <DialogContent className="bg-[#0a0a0a] border-[#1a1a1a] text-white max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-[#0a0a0a] border-[#1a1a1a] text-white max-w-xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-[#dc2626]/10 border border-[#dc2626]/20 flex items-center justify-center">
@@ -595,9 +589,9 @@ export default function TeamPage() {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-5 py-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
+          <div className="space-y-5 py-4 min-w-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2 min-w-0">
                 <label className="block text-sm font-medium text-white/70">
                   Email <span className="text-red-400">*</span>
                 </label>
@@ -608,11 +602,11 @@ export default function TeamPage() {
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     placeholder="john@example.com"
-                    className="bg-[#1a1a1a] border-[#262626] text-white pl-10 focus:border-[#dc2626]/50 transition-colors"
+                    className="bg-[#1a1a1a] border-[#262626] text-white pl-10 focus:border-[#dc2626]/50 transition-colors w-full"
                   />
                 </div>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 min-w-0">
                 <label className="block text-sm font-medium text-white/70">Username</label>
                 <div className="relative">
                   <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
@@ -620,47 +614,29 @@ export default function TeamPage() {
                     value={formData.username}
                     onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                     placeholder="johndoe (optional)"
-                    className="bg-[#1a1a1a] border-[#262626] text-white pl-10 focus:border-[#dc2626]/50 transition-colors"
+                    className="bg-[#1a1a1a] border-[#262626] text-white pl-10 focus:border-[#dc2626]/50 transition-colors w-full"
                   />
                 </div>
                 <p className="text-xs text-white/40">Optional; else derived from name. Used for login.</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-white/70">
-                  Full Name <span className="text-red-400">*</span>
-                </label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-                  <Input
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="John Doe"
-                    className="bg-[#1a1a1a] border-[#262626] text-white pl-10 focus:border-[#dc2626]/50 transition-colors"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-white/70">
-                  Role <span className="text-red-400">*</span>
-                </label>
-                <select
-                  value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#262626] rounded-lg text-white focus:outline-none focus:border-[#dc2626]/50 transition-colors"
-                >
-                  <option value="Support">Support</option>
-                  <option value="Developer">Developer</option>
-                  <option value="Moderator">Moderator</option>
-                  <option value="Admin">Admin</option>
-                  <option value="Owner">Owner</option>
-                </select>
+            <div className="space-y-2 min-w-0">
+              <label className="block text-sm font-medium text-white/70">
+                Full Name <span className="text-red-400">*</span>
+              </label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                <Input
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="John Doe"
+                  className="bg-[#1a1a1a] border-[#262626] text-white pl-10 focus:border-[#dc2626]/50 transition-colors w-full"
+                />
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-3 min-w-0">
               <div className="flex items-center justify-between">
                 <label className="block text-sm font-medium text-white/70">Permissions</label>
                 <button
@@ -671,7 +647,7 @@ export default function TeamPage() {
                   {formData.permissions.length >= PERMISSION_IDS.length ? "Clear all" : "Full access"}
                 </button>
               </div>
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 p-5 rounded-xl bg-[#111] border border-[#262626]">
+              <div className="flex flex-col gap-2 p-4 rounded-xl bg-[#111] border border-[#262626] max-h-64 overflow-y-auto">
                 {TEAM_PERMISSIONS.map((p) => {
                   const Icon = permIcons[p.id];
                   const checked = formData.permissions.includes(p.id);
@@ -680,7 +656,7 @@ export default function TeamPage() {
                       key={p.id}
                       type="button"
                       onClick={() => togglePermission(p.id)}
-                      className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all min-w-[180px] ${
+                      className={`flex items-center gap-3 px-4 py-2.5 rounded-lg border text-left transition-all w-full ${
                         checked
                           ? "bg-[#dc2626]/10 border-[#dc2626]/40 text-white"
                           : "bg-[#0a0a0a] border-[#262626] text-white/60 hover:border-[#262626] hover:text-white/80"
@@ -689,10 +665,8 @@ export default function TeamPage() {
                       <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${checked ? "bg-[#dc2626] border-[#dc2626]" : "border-white/30"}`}>
                         {checked && <Check className="w-3 h-3 text-white" />}
                       </div>
-                      <span className="flex items-center gap-2 text-sm whitespace-nowrap">
-                        {Icon && <Icon className="w-4 h-4 flex-shrink-0 text-white/50" />}
-                        {p.label}
-                      </span>
+                      {Icon && <Icon className="w-4 h-4 flex-shrink-0 text-white/50" />}
+                      <span className="text-sm">{p.label}</span>
                     </button>
                   );
                 })}
@@ -731,7 +705,7 @@ export default function TeamPage() {
 
       {/* Edit Member Modal */}
       <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
-        <DialogContent className="bg-[#0a0a0a] border-[#1a1a1a] text-white max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-[#0a0a0a] border-[#1a1a1a] text-white max-w-xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
@@ -744,9 +718,9 @@ export default function TeamPage() {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-5 py-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
+          <div className="space-y-5 py-4 min-w-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2 min-w-0">
                 <label className="block text-sm font-medium text-white/70">Email <span className="text-red-400">*</span></label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
@@ -754,11 +728,11 @@ export default function TeamPage() {
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="bg-[#1a1a1a] border-[#262626] text-white pl-10 focus:border-blue-500/50 transition-colors"
+                    className="bg-[#1a1a1a] border-[#262626] text-white pl-10 focus:border-blue-500/50 transition-colors w-full"
                   />
                 </div>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 min-w-0">
                 <label className="block text-sm font-medium text-white/70">Username</label>
                 <div className="relative">
                   <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
@@ -766,40 +740,24 @@ export default function TeamPage() {
                     value={formData.username}
                     onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                     placeholder="johndoe"
-                    className="bg-[#1a1a1a] border-[#262626] text-white pl-10 focus:border-blue-500/50 transition-colors"
+                    className="bg-[#1a1a1a] border-[#262626] text-white pl-10 focus:border-blue-500/50 transition-colors w-full"
                   />
                 </div>
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-white/70">Full Name <span className="text-red-400">*</span></label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-                  <Input
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="bg-[#1a1a1a] border-[#262626] text-white pl-10 focus:border-blue-500/50 transition-colors"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-white/70">Role <span className="text-red-400">*</span></label>
-                <select
-                  value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#262626] rounded-lg text-white focus:outline-none focus:border-blue-500/50 transition-colors"
-                >
-                  <option value="Support">Support</option>
-                  <option value="Developer">Developer</option>
-                  <option value="Moderator">Moderator</option>
-                  <option value="Admin">Admin</option>
-                  <option value="Owner">Owner</option>
-                </select>
+            <div className="space-y-2 min-w-0">
+              <label className="block text-sm font-medium text-white/70">Full Name <span className="text-red-400">*</span></label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                <Input
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="bg-[#1a1a1a] border-[#262626] text-white pl-10 focus:border-blue-500/50 transition-colors w-full"
+                />
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-3 min-w-0">
               <div className="flex items-center justify-between">
                 <label className="block text-sm font-medium text-white/70">Permissions</label>
                 <button
@@ -810,7 +768,7 @@ export default function TeamPage() {
                   {formData.permissions.length >= PERMISSION_IDS.length ? "Clear all" : "Full access"}
                 </button>
               </div>
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 p-5 rounded-xl bg-[#111] border border-[#262626]">
+              <div className="flex flex-col gap-2 p-4 rounded-xl bg-[#111] border border-[#262626] max-h-64 overflow-y-auto">
                 {TEAM_PERMISSIONS.map((p) => {
                   const Icon = permIcons[p.id];
                   const checked = formData.permissions.includes(p.id);
@@ -819,7 +777,7 @@ export default function TeamPage() {
                       key={p.id}
                       type="button"
                       onClick={() => togglePermission(p.id)}
-                      className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all min-w-[180px] ${
+                      className={`flex items-center gap-3 px-4 py-2.5 rounded-lg border text-left transition-all w-full ${
                         checked
                           ? "bg-blue-500/10 border-blue-500/40 text-white"
                           : "bg-[#0a0a0a] border-[#262626] text-white/60 hover:border-[#262626] hover:text-white/80"
@@ -828,10 +786,8 @@ export default function TeamPage() {
                       <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${checked ? "bg-blue-500 border-blue-500" : "border-white/30"}`}>
                         {checked && <Check className="w-3 h-3 text-white" />}
                       </div>
-                      <span className="flex items-center gap-2 text-sm whitespace-nowrap">
-                        {Icon && <Icon className="w-4 h-4 flex-shrink-0 text-white/50" />}
-                        {p.label}
-                      </span>
+                      {Icon && <Icon className="w-4 h-4 flex-shrink-0 text-white/50" />}
+                      <span className="text-sm">{p.label}</span>
                     </button>
                   );
                 })}

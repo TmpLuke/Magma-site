@@ -57,7 +57,6 @@ export async function updateTeamMember(
     name: string;
     email: string;
     username?: string;
-    role: string;
     permissions?: string[];
   }
 ) {
@@ -67,7 +66,6 @@ export async function updateTeamMember(
     const payload: Record<string, unknown> = {
       name: data.name,
       email: data.email,
-      role: data.role,
     };
     if (data.username !== undefined) {
       payload.username = data.username.trim().replace(/\s+/g, "_") || null;

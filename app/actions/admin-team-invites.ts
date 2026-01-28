@@ -9,7 +9,6 @@ import { requirePermission } from "@/lib/admin-auth";
 function inviteEmailHTML(params: {
   name: string;
   username: string;
-  role: string;
   permissions: string[];
   inviteLink: string;
 }) {
@@ -30,9 +29,9 @@ function inviteEmailHTML(params: {
     </div>
     <div style="background:#111;border:1px solid #262626;border-radius:16px;padding:40px;">
       <h2 style="color:#fff;margin:0 0 20px;font-size:20px;">Hi ${params.name},</h2>
-      <p style="color:#a3a3a3;line-height:1.6;margin:0 0 20px;">You've been invited to join the Magma admin team as <strong style="color:#dc2626;">${params.role}</strong>.</p>
+      <p style="color:#a3a3a3;line-height:1.6;margin:0 0 20px;">You've been invited to join the Magma admin team.</p>
       <p style="color:#a3a3a3;line-height:1.6;margin:0 0 8px;"><strong style="color:#fff;">Username:</strong> ${params.username || params.name}</p>
-      <p style="color:#a3a3a3;line-height:1.6;margin:0 0 24px;"><strong style="color:#fff;">Access:</strong> ${permList}</p>
+      <p style="color:#a3a3a3;line-height:1.6;margin:0 0 24px;"><strong style="color:#fff;">Permissions:</strong> ${permList}</p>
       <p style="color:#a3a3a3;line-height:1.6;margin:0 0 30px;">Click the button below to accept and set up your account:</p>
       <div style="text-align:center;margin:30px 0;">
         <a href="${params.inviteLink}" style="display:inline-block;background:linear-gradient(135deg,#dc2626 0%,#ef4444 100%);color:white;text-decoration:none;padding:16px 32px;border-radius:10px;font-weight:600;font-size:16px;">Accept Invitation</a>
@@ -72,9 +71,8 @@ function reminderEmailHTML(params: { name: string; inviteLink: string }) {
 
 export async function inviteTeamMember(data: {
   email: string;
-  username: string;
+  username?: string;
   name: string;
-  role: string;
   permissions: string[];
 }) {
   try {
@@ -104,6 +102,7 @@ export async function inviteTeamMember(data: {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
     const permissions = Array.isArray(data.permissions) ? data.permissions : [];
+    const role = "Support";
 
     const { data: teamMember, error: insertError } = await supabase
       .from("team_members")
@@ -111,7 +110,7 @@ export async function inviteTeamMember(data: {
         email,
         username,
         name: data.name.trim(),
-        role: data.role,
+        role,
         status: "pending",
         invite_token: inviteToken,
         invite_expires_at: expiresAt.toISOString(),
@@ -141,7 +140,6 @@ export async function inviteTeamMember(data: {
       html: inviteEmailHTML({
         name: data.name.trim(),
         username,
-        role: data.role,
         permissions,
         inviteLink,
       }),

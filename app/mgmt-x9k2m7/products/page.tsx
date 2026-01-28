@@ -6,21 +6,59 @@ import { DataTable } from "@/components/admin/data-table";
 import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { RefreshCw } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { RefreshCw, Plus, Edit, Trash2, Search, Package, AlertCircle, Check, X, Image as ImageIcon, Tag, Gamepad2, Server } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { createProduct, updateProduct, deleteProduct } from "@/app/actions/admin-products";
 
 interface Product {
   id: string;
   name: string;
   slug: string;
   game: string;
+  description: string | null;
+  image: string | null;
   status: string;
   provider: string;
+  features: string[];
+  requirements: string[];
   created_at: string;
+}
+
+interface ProductFormData {
+  name: string;
+  slug: string;
+  game: string;
+  description: string;
+  image: string;
+  status: string;
+  provider: string;
+  features: string;
+  requirements: string;
 }
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState<string | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [formData, setFormData] = useState<ProductFormData>({
+    name: "",
+    slug: "",
+    game: "",
+    description: "",
+    image: "",
+    status: "active",
+    provider: "Magma",
+    features: "",
+    requirements: "",
+  });
+  const { toast } = useToast();
 
   useEffect(() => {
     loadProducts();
@@ -28,6 +66,7 @@ export default function ProductsPage() {
 
   async function loadProducts() {
     try {
+      setLoading(true);
       const supabase = createClient();
       const { data, error } = await supabase
         .from("products")
@@ -38,20 +77,193 @@ export default function ProductsPage() {
       setProducts(data || []);
     } catch (error) {
       console.error("Failed to load products:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load products. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   }
 
+  async function handleAddProduct() {
+    try {
+      setProcessing("add");
+      
+      const result = await createProduct({
+        name: formData.name,
+        slug: formData.slug,
+        game: formData.game,
+        description: formData.description,
+        image: formData.image,
+        status: formData.status,
+        provider: formData.provider,
+        features: formData.features ? formData.features.split(",").map(f => f.trim()) : [],
+        requirements: formData.requirements ? formData.requirements.split(",").map(r => r.trim()) : [],
+      });
+
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+
+      toast({
+        title: "Success",
+        description: "Product created successfully",
+        className: "border-green-500/20 bg-green-500/10",
+      });
+      
+      setShowAddModal(false);
+      resetForm();
+      await loadProducts();
+    } catch (error: any) {
+      console.error("Failed to add product:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create product. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessing(null);
+    }
+  }
+
+  async function handleEditProduct() {
+    if (!selectedProduct) return;
+    
+    try {
+      setProcessing("edit");
+      
+      const result = await updateProduct(selectedProduct.id, {
+        name: formData.name,
+        slug: formData.slug,
+        game: formData.game,
+        description: formData.description,
+        image: formData.image,
+        status: formData.status,
+        provider: formData.provider,
+        features: formData.features ? formData.features.split(",").map(f => f.trim()) : [],
+        requirements: formData.requirements ? formData.requirements.split(",").map(r => r.trim()) : [],
+      });
+
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+
+      toast({
+        title: "Success",
+        description: "Product updated successfully",
+        className: "border-blue-500/20 bg-blue-500/10",
+      });
+      
+      setShowEditModal(false);
+      setSelectedProduct(null);
+      resetForm();
+      await loadProducts();
+    } catch (error: any) {
+      console.error("Failed to edit product:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update product. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessing(null);
+    }
+  }
+
+  async function handleDeleteProduct() {
+    if (!selectedProduct) return;
+    
+    try {
+      setProcessing("delete");
+      
+      const result = await deleteProduct(selectedProduct.id);
+
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+
+      toast({
+        title: "Success",
+        description: "Product deleted successfully",
+        className: "border-red-500/20 bg-red-500/10",
+      });
+      
+      setShowDeleteModal(false);
+      setSelectedProduct(null);
+      await loadProducts();
+    } catch (error: any) {
+      console.error("Failed to delete product:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete product. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessing(null);
+    }
+  }
+
+
+  function openEditModal(product: Product) {
+    setSelectedProduct(product);
+    setFormData({
+      name: product.name,
+      slug: product.slug,
+      game: product.game,
+      description: product.description || "",
+      image: product.image || "",
+      status: product.status,
+      provider: product.provider,
+      features: product.features?.join(", ") || "",
+      requirements: product.requirements?.join(", ") || "",
+    });
+    setShowEditModal(true);
+  }
+
+  function openDeleteModal(product: Product) {
+    setSelectedProduct(product);
+    setShowDeleteModal(true);
+  }
+
+  function resetForm() {
+    setFormData({
+      name: "",
+      slug: "",
+      game: "",
+      description: "",
+      image: "",
+      status: "active",
+      provider: "Magma",
+      features: "",
+      requirements: "",
+    });
+  }
+
   const columns = [
     {
       key: "name",
-      label: "Product Name",
+      label: "Product",
       sortable: true,
       render: (product: Product) => (
-        <div>
-          <p className="text-white font-medium">{product.name}</p>
-          <p className="text-xs text-white/50">{product.game}</p>
+        <div className="flex items-center gap-3 group">
+          <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gradient-to-br from-[#dc2626]/20 to-[#dc2626]/5 border border-[#dc2626]/10 flex items-center justify-center transition-all group-hover:border-[#dc2626]/30">
+            {product.image ? (
+              <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+            ) : (
+              <Package className="w-5 h-5 text-[#dc2626]/50" />
+            )}
+          </div>
+          <div>
+            <p className="text-white font-semibold tracking-tight group-hover:text-[#dc2626] transition-colors">
+              {product.name}
+            </p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <Gamepad2 className="w-3 h-3 text-white/40" />
+              <p className="text-xs text-white/50 font-medium">{product.game}</p>
+            </div>
+          </div>
         </div>
       ),
     },
@@ -60,7 +272,12 @@ export default function ProductsPage() {
       label: "Slug",
       sortable: true,
       render: (product: Product) => (
-        <span className="font-mono text-white/70">{product.slug}</span>
+        <div className="flex items-center gap-2">
+          <Tag className="w-3.5 h-3.5 text-white/30" />
+          <span className="px-2 py-1 bg-[#1a1a1a] rounded border border-[#262626] text-xs text-white/70">
+            {product.slug}
+          </span>
+        </div>
       ),
     },
     {
@@ -68,7 +285,10 @@ export default function ProductsPage() {
       label: "Provider",
       sortable: true,
       render: (product: Product) => (
-        <span className="text-white/70">{product.provider}</span>
+        <div className="flex items-center gap-2">
+          <Server className="w-3.5 h-3.5 text-white/30" />
+          <span className="text-white/70 font-medium">{product.provider}</span>
+        </div>
       ),
     },
     {
@@ -76,14 +296,33 @@ export default function ProductsPage() {
       label: "Status",
       sortable: true,
       render: (product: Product) => {
-        const statusColors = {
-          Undetected: "bg-green-500/10 text-green-400 border-green-500/20",
-          Updating: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
-          Detected: "bg-red-500/10 text-red-400 border-red-500/20",
+        const statusConfig = {
+          active: {
+            bg: "bg-emerald-500/10",
+            text: "text-emerald-400",
+            border: "border-emerald-500/30",
+            icon: Check,
+          },
+          inactive: {
+            bg: "bg-gray-500/10",
+            text: "text-gray-400",
+            border: "border-gray-500/30",
+            icon: X,
+          },
+          maintenance: {
+            bg: "bg-amber-500/10",
+            text: "text-amber-400",
+            border: "border-amber-500/30",
+            icon: AlertCircle,
+          },
         };
+        const config = statusConfig[product.status as keyof typeof statusConfig];
+        const Icon = config?.icon || AlertCircle;
+
         return (
-          <Badge className={statusColors[product.status as keyof typeof statusColors] || ""}>
-            {product.status}
+          <Badge className={`${config?.bg} ${config?.text} ${config?.border} border font-medium px-2.5 py-1 flex items-center gap-1.5 w-fit`}>
+            <Icon className="w-3 h-3" />
+            <span className="capitalize">{product.status}</span>
           </Badge>
         );
       },
@@ -93,8 +332,12 @@ export default function ProductsPage() {
       label: "Created",
       sortable: true,
       render: (product: Product) => (
-        <span className="text-white/50 text-sm">
-          {new Date(product.created_at).toLocaleDateString()}
+        <span className="text-white/40 text-sm font-medium tabular-nums">
+          {new Date(product.created_at).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })}
         </span>
       ),
     },
@@ -102,60 +345,521 @@ export default function ProductsPage() {
 
   if (loading) {
     return (
-      <AdminShell title="Products" subtitle="Manage your products">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#dc2626]" />
+      <AdminShell title="Products" subtitle="Manage your product catalog">
+        <div className="flex flex-col items-center justify-center h-64 gap-4">
+          <div className="relative">
+            <div className="w-12 h-12 rounded-full border-2 border-[#dc2626]/20 border-t-[#dc2626] animate-spin" />
+            <div className="absolute inset-0 w-12 h-12 rounded-full bg-[#dc2626]/5 blur-xl animate-pulse" />
+          </div>
+          <p className="text-white/40 text-sm font-medium">Loading products...</p>
         </div>
       </AdminShell>
     );
   }
 
   return (
-    <AdminShell title="Products" subtitle="Manage your products">
-      <div className="mb-6 flex items-center justify-between">
-        <Button
-          onClick={() => loadProducts()}
-          variant="outline"
-          size="sm"
-          className="bg-[#1a1a1a] border-[#262626] text-white hover:bg-[#262626]"
-        >
-          <RefreshCw className="w-4 h-4 mr-2" />
-          Refresh
-        </Button>
+    <AdminShell title="Products" subtitle="Manage your product catalog">
+      {/* Stats Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] border border-[#262626] rounded-xl p-4 hover:border-[#dc2626]/30 transition-all">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-white/50 text-xs font-semibold uppercase tracking-wider">Total Products</p>
+              <p className="text-2xl font-bold text-white mt-1">{products.length}</p>
+            </div>
+            <div className="w-12 h-12 rounded-lg bg-[#dc2626]/10 border border-[#dc2626]/20 flex items-center justify-center">
+              <Package className="w-6 h-6 text-[#dc2626]" />
+            </div>
+          </div>
+        </div>
         
-        <div className="text-white/50 text-sm">
-          To add products, use the Supabase dashboard or create an admin UI for product management.
+        <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] border border-[#262626] rounded-xl p-4 hover:border-emerald-500/30 transition-all">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-white/50 text-xs font-semibold uppercase tracking-wider">Active</p>
+              <p className="text-2xl font-bold text-emerald-400 mt-1">
+                {products.filter(p => p.status === "active").length}
+              </p>
+            </div>
+            <div className="w-12 h-12 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+              <Check className="w-6 h-6 text-emerald-400" />
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] border border-[#262626] rounded-xl p-4 hover:border-amber-500/30 transition-all">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-white/50 text-xs font-semibold uppercase tracking-wider">Maintenance</p>
+              <p className="text-2xl font-bold text-amber-400 mt-1">
+                {products.filter(p => p.status === "maintenance").length}
+              </p>
+            </div>
+            <div className="w-12 h-12 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+              <AlertCircle className="w-6 h-6 text-amber-400" />
+            </div>
+          </div>
         </div>
       </div>
 
-      {products.length === 0 ? (
-        <div className="text-center py-16 bg-[#0a0a0a] border border-[#1a1a1a] rounded-xl">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#dc2626]/10 mb-4">
-            <svg className="w-8 h-8 text-[#dc2626]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-            </svg>
-          </div>
-          <h3 className="text-xl font-bold text-white mb-2">No Products Yet</h3>
-          <p className="text-white/50 max-w-md mx-auto mb-6">
-            Add your first product through the Supabase dashboard to get started.
-          </p>
-          <a
-            href="https://supabase.com/dashboard"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center px-4 py-2 bg-[#dc2626] hover:bg-[#ef4444] text-white rounded-lg transition-colors"
+      {/* Actions Bar */}
+      <div className="mb-6 flex items-center justify-between">
+        <div className="flex gap-2">
+          <Button
+            onClick={() => loadProducts()}
+            variant="outline"
+            size="sm"
+            disabled={loading}
+            className="bg-[#1a1a1a] border-[#262626] text-white hover:bg-[#262626] hover:border-[#dc2626]/30 transition-all"
           >
-            Open Supabase Dashboard
-          </a>
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
         </div>
-      ) : (
-        <DataTable
-          data={products}
-          columns={columns}
-          searchKey="name"
-          searchPlaceholder="Search products..."
-        />
-      )}
+        <Button
+          onClick={() => setShowAddModal(true)}
+          size="sm"
+          className="bg-gradient-to-r from-[#dc2626] to-[#ef4444] hover:from-[#ef4444] hover:to-[#dc2626] text-white shadow-lg shadow-[#dc2626]/20 transition-all"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Add Product
+        </Button>
+      </div>
+
+      {/* Data Table */}
+      <DataTable
+        data={products}
+        columns={columns}
+        searchKey="name"
+        searchPlaceholder="Search products..."
+        actions={(product) => (
+          <div className="flex gap-1.5">
+            <Button
+              onClick={() => openEditModal(product)}
+              size="sm"
+              variant="ghost"
+              className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 transition-all"
+              title="Edit Product"
+            >
+              <Edit className="w-4 h-4" />
+            </Button>
+            <Button
+              onClick={() => openDeleteModal(product)}
+              size="sm"
+              variant="ghost"
+              className="text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all"
+              title="Delete Product"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
+      />
+
+      {/* Add Product Modal */}
+      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+        <DialogContent className="bg-[#0a0a0a] border-[#1a1a1a] text-white max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-[#dc2626]/10 border border-[#dc2626]/20 flex items-center justify-center">
+                <Plus className="w-4 h-4 text-[#dc2626]" />
+              </div>
+              Add New Product
+            </DialogTitle>
+            <DialogDescription className="text-white/50">
+              Fill in the details below to create a new product
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6 py-4">
+            {/* Basic Information */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider flex items-center gap-2">
+                <Package className="w-4 h-4" />
+                Basic Information
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-white/70">
+                    Product Name <span className="text-red-400">*</span>
+                  </label>
+                  <Input
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="e.g., Apex Legends Cheat"
+                    className="bg-[#1a1a1a] border-[#262626] text-white placeholder:text-white/30 focus:border-[#dc2626]/50 transition-colors"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-white/70">
+                    Slug <span className="text-red-400">*</span>
+                  </label>
+                  <Input
+                    value={formData.slug}
+                    onChange={(e) => setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/\s+/g, "-") })}
+                    placeholder="e.g., apex-legends"
+                    className="bg-[#1a1a1a] border-[#262626] text-white placeholder:text-white/30 focus:border-[#dc2626]/50 font-mono transition-colors"
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-white/70">
+                    Game <span className="text-red-400">*</span>
+                  </label>
+                  <Input
+                    value={formData.game}
+                    onChange={(e) => setFormData({ ...formData, game: e.target.value })}
+                    placeholder="e.g., Apex Legends"
+                    className="bg-[#1a1a1a] border-[#262626] text-white placeholder:text-white/30 focus:border-[#dc2626]/50 transition-colors"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-white/70">Provider</label>
+                  <Input
+                    value={formData.provider}
+                    onChange={(e) => setFormData({ ...formData, provider: e.target.value })}
+                    className="bg-[#1a1a1a] border-[#262626] text-white focus:border-[#dc2626]/50 transition-colors"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Configuration */}
+            <div className="space-y-4 pt-4 border-t border-[#1a1a1a]">
+              <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" />
+                Configuration
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-white/70">Status</label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#262626] rounded-lg text-white focus:outline-none focus:border-[#dc2626]/50 transition-colors"
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="maintenance">Maintenance</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-white/70">Image URL</label>
+                  <div className="relative">
+                    <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                    <Input
+                      value={formData.image}
+                      onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                      placeholder="/images/product.jpg"
+                      className="bg-[#1a1a1a] border-[#262626] text-white placeholder:text-white/30 focus:border-[#dc2626]/50 pl-10 transition-colors"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Details */}
+            <div className="space-y-4 pt-4 border-t border-[#1a1a1a]">
+              <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider flex items-center gap-2">
+                <Edit className="w-4 h-4" />
+                Details
+              </h3>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-white/70">Description</label>
+                <Textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Describe your product..."
+                  rows={3}
+                  className="bg-[#1a1a1a] border-[#262626] text-white placeholder:text-white/30 focus:border-[#dc2626]/50 resize-none transition-colors"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-white/70">
+                  Features <span className="text-white/40 text-xs">(comma-separated)</span>
+                </label>
+                <Textarea
+                  value={formData.features}
+                  onChange={(e) => setFormData({ ...formData, features: e.target.value })}
+                  placeholder="Aimbot, ESP, No Recoil, Radar"
+                  rows={2}
+                  className="bg-[#1a1a1a] border-[#262626] text-white placeholder:text-white/30 focus:border-[#dc2626]/50 resize-none transition-colors"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-white/70">
+                  Requirements <span className="text-white/40 text-xs">(comma-separated)</span>
+                </label>
+                <Textarea
+                  value={formData.requirements}
+                  onChange={(e) => setFormData({ ...formData, requirements: e.target.value })}
+                  placeholder="Windows 10, Intel CPU, 8GB RAM"
+                  rows={2}
+                  className="bg-[#1a1a1a] border-[#262626] text-white placeholder:text-white/30 focus:border-[#dc2626]/50 resize-none transition-colors"
+                />
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter className="gap-2">
+            <Button
+              onClick={() => { setShowAddModal(false); resetForm(); }}
+              variant="outline"
+              className="bg-[#1a1a1a] border-[#262626] text-white hover:bg-[#262626] transition-colors"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddProduct}
+              disabled={processing === "add" || !formData.name || !formData.slug || !formData.game}
+              className="bg-gradient-to-r from-[#dc2626] to-[#ef4444] hover:from-[#ef4444] hover:to-[#dc2626] text-white shadow-lg shadow-[#dc2626]/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              {processing === "add" ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Product
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Product Modal */}
+      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+        <DialogContent className="bg-[#0a0a0a] border-[#1a1a1a] text-white max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+                <Edit className="w-4 h-4 text-blue-400" />
+              </div>
+              Edit Product
+            </DialogTitle>
+            <DialogDescription className="text-white/50">
+              Update the product details below
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6 py-4">
+            {/* Basic Information */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider flex items-center gap-2">
+                <Package className="w-4 h-4" />
+                Basic Information
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-white/70">
+                    Product Name <span className="text-red-400">*</span>
+                  </label>
+                  <Input
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="bg-[#1a1a1a] border-[#262626] text-white focus:border-blue-500/50 transition-colors"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-white/70">
+                    Slug <span className="text-red-400">*</span>
+                  </label>
+                  <Input
+                    value={formData.slug}
+                    onChange={(e) => setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/\s+/g, "-") })}
+                    className="bg-[#1a1a1a] border-[#262626] text-white focus:border-blue-500/50 font-mono transition-colors"
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-white/70">
+                    Game <span className="text-red-400">*</span>
+                  </label>
+                  <Input
+                    value={formData.game}
+                    onChange={(e) => setFormData({ ...formData, game: e.target.value })}
+                    className="bg-[#1a1a1a] border-[#262626] text-white focus:border-blue-500/50 transition-colors"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-white/70">Provider</label>
+                  <Input
+                    value={formData.provider}
+                    onChange={(e) => setFormData({ ...formData, provider: e.target.value })}
+                    className="bg-[#1a1a1a] border-[#262626] text-white focus:border-blue-500/50 transition-colors"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Configuration */}
+            <div className="space-y-4 pt-4 border-t border-[#1a1a1a]">
+              <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" />
+                Configuration
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-white/70">Status</label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#262626] rounded-lg text-white focus:outline-none focus:border-blue-500/50 transition-colors"
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="maintenance">Maintenance</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-white/70">Image URL</label>
+                  <div className="relative">
+                    <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                    <Input
+                      value={formData.image}
+                      onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                      className="bg-[#1a1a1a] border-[#262626] text-white focus:border-blue-500/50 pl-10 transition-colors"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Details */}
+            <div className="space-y-4 pt-4 border-t border-[#1a1a1a]">
+              <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider flex items-center gap-2">
+                <Edit className="w-4 h-4" />
+                Details
+              </h3>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-white/70">Description</label>
+                <Textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  rows={3}
+                  className="bg-[#1a1a1a] border-[#262626] text-white focus:border-blue-500/50 resize-none transition-colors"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-white/70">
+                  Features <span className="text-white/40 text-xs">(comma-separated)</span>
+                </label>
+                <Textarea
+                  value={formData.features}
+                  onChange={(e) => setFormData({ ...formData, features: e.target.value })}
+                  rows={2}
+                  className="bg-[#1a1a1a] border-[#262626] text-white focus:border-blue-500/50 resize-none transition-colors"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-white/70">
+                  Requirements <span className="text-white/40 text-xs">(comma-separated)</span>
+                </label>
+                <Textarea
+                  value={formData.requirements}
+                  onChange={(e) => setFormData({ ...formData, requirements: e.target.value })}
+                  rows={2}
+                  className="bg-[#1a1a1a] border-[#262626] text-white focus:border-blue-500/50 resize-none transition-colors"
+                />
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter className="gap-2">
+            <Button
+              onClick={() => { setShowEditModal(false); setSelectedProduct(null); resetForm(); }}
+              variant="outline"
+              className="bg-[#1a1a1a] border-[#262626] text-white hover:bg-[#262626] transition-colors"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleEditProduct}
+              disabled={processing === "edit" || !formData.name || !formData.slug || !formData.game}
+              className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              {processing === "edit" ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4 mr-2" />
+                  Save Changes
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Modal */}
+      <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
+        <DialogContent className="bg-[#0a0a0a] border-[#1a1a1a] text-white">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+                <AlertCircle className="w-4 h-4 text-red-400" />
+              </div>
+              Delete Product
+            </DialogTitle>
+            <DialogDescription className="text-white/50">
+              This action cannot be undone
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-6">
+            <div className="bg-red-500/5 border border-red-500/20 rounded-lg p-4">
+              <p className="text-white/70">
+                Are you sure you want to delete{" "}
+                <span className="font-semibold text-white">{selectedProduct?.name}</span>?
+              </p>
+              <p className="text-white/50 text-sm mt-2">
+                All associated data will be permanently removed from the database.
+              </p>
+            </div>
+          </div>
+          
+          <DialogFooter className="gap-2">
+            <Button
+              onClick={() => { setShowDeleteModal(false); setSelectedProduct(null); }}
+              variant="outline"
+              className="bg-[#1a1a1a] border-[#262626] text-white hover:bg-[#262626] transition-colors"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteProduct}
+              disabled={processing === "delete"}
+              className="bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-600 text-white shadow-lg shadow-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              {processing === "delete" ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Product
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminShell>
   );
 }

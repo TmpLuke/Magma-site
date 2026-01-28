@@ -1,113 +1,113 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
-import { mockProducts } from "@/lib/admin-mock-data";
+import { Button } from "@/components/ui/button";
+import { RefreshCw, CheckCircle, AlertCircle, Wrench } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 
-type StatusType = "undetected" | "use_at_own_risk" | "updating" | "detected" | "testing";
-
-interface CheatItem {
+interface Product {
   id: string;
   name: string;
-  game: string;
   slug: string;
-  status: StatusType;
-  windows: string;
-  undetectedSince?: string;
-  image: string;
+  game: string;
+  status: string;
+  image: string | null;
+  updated_at: string;
 }
 
-// Status configurations
-const statusConfig = {
-  undetected: {
-    label: "UNDETECTED (WORKING)",
-    color: "text-green-400",
-    bg: "bg-green-500/20",
-    border: "border-green-500/30",
-    dotColor: "bg-green-400",
-  },
-  use_at_own_risk: {
-    label: "USE AT OWN RISK (WORKING)",
-    color: "text-yellow-400",
-    bg: "bg-yellow-500/20",
-    border: "border-yellow-500/30",
-    dotColor: "bg-yellow-400",
-  },
-  updating: {
-    label: "UPDATING (NOT WORKING)",
-    color: "text-orange-400",
-    bg: "bg-orange-500/20",
-    border: "border-orange-500/30",
-    dotColor: "bg-orange-400",
-  },
-  detected: {
-    label: "DETECTED (NOT WORKING)",
-    color: "text-red-400",
-    bg: "bg-red-500/20",
-    border: "border-red-500/30",
-    dotColor: "bg-red-400",
-  },
-  testing: {
-    label: "TESTING (WORKING)",
-    color: "text-purple-400",
-    bg: "bg-purple-500/20",
-    border: "border-purple-500/30",
-    dotColor: "bg-purple-400",
-  },
-};
-
-// Game categories for filtering
-const gameCategories = [
-  "ALL",
-  "RUST",
-  "FORTNITE",
-  "APEX LEGENDS",
-  "HWID SPOOFERS",
-  "MARVEL RIVALS",
-  "RAINBOW SIX SIEGE",
-  "ESCAPE FROM TARKOV",
-  "DELTA FORCE",
-  "PUBG",
-  "DAYZ",
-];
-
-// Transform mock products to cheat items with varied statuses
-const cheatItems: CheatItem[] = mockProducts.map((product, index) => {
-  const statuses: StatusType[] = ["undetected", "undetected", "undetected", "use_at_own_risk", "updating", "testing"];
-  return {
-    id: product.id,
-    name: product.name,
-    game: product.game,
-    slug: product.slug,
-    status: statuses[index % statuses.length],
-    windows: "Windows 10 & 11",
-    undetectedSince: "Jan 2026",
-    image: product.image,
-  };
-});
-
 export default function StatusPage() {
-  const [activeFilter, setActiveFilter] = useState("ALL");
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredCheats = activeFilter === "ALL" 
-    ? cheatItems 
-    : cheatItems.filter(item => 
-        item.game.toUpperCase().includes(activeFilter) || 
-        (activeFilter === "HWID SPOOFERS" && item.game === "Universal")
-      );
+  useEffect(() => {
+    loadProducts();
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(loadProducts, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
-  // Group cheats by game
-  const groupedCheats = filteredCheats.reduce((acc, cheat) => {
-    const game = cheat.game;
+  async function loadProducts() {
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, name, slug, game, status, image, updated_at")
+        .order("name");
+
+      if (error) throw error;
+      setProducts(data || []);
+    } catch (error) {
+      console.error("Failed to load products:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "active":
+        return "bg-green-500/20 text-green-400 border-green-500/30";
+      case "inactive":
+        return "bg-red-500/20 text-red-400 border-red-500/30";
+      case "maintenance":
+        return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+      default:
+        return "bg-gray-500/20 text-gray-400 border-gray-500/30";
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "active":
+        return <CheckCircle className="w-5 h-5" />;
+      case "inactive":
+        return <AlertCircle className="w-5 h-5" />;
+      case "maintenance":
+        return <Wrench className="w-5 h-5" />;
+      default:
+        return <AlertCircle className="w-5 h-5" />;
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case "active":
+        return "UNDETECTED (WORKING)";
+      case "inactive":
+        return "DETECTED (NOT WORKING)";
+      case "maintenance":
+        return "UPDATING (NOT WORKING)";
+      default:
+        return status.toUpperCase();
+    }
+  };
+
+  const getStatusDotColor = (status: string) => {
+    switch (status) {
+      case "active":
+        return "bg-green-400";
+      case "inactive":
+        return "bg-red-400";
+      case "maintenance":
+        return "bg-yellow-400";
+      default:
+        return "bg-gray-400";
+    }
+  };
+
+  // Group products by game
+  const groupedProducts = products.reduce((acc, product) => {
+    const game = product.game;
     if (!acc[game]) {
       acc[game] = [];
     }
-    acc[game].push(cheat);
+    acc[game].push(product);
     return acc;
-  }, {} as Record<string, CheatItem[]>);
+  }, {} as Record<string, Product[]>);
 
   return (
     <main className="min-h-screen bg-[#0a0a0a]">
@@ -126,9 +126,19 @@ export default function StatusPage() {
             <span className="text-white">For our </span>
             <span className="text-[#dc2626]">Cheats</span>
           </h1>
-          <p className="text-white/60 max-w-2xl mx-auto">
+          <p className="text-white/60 max-w-2xl mx-auto mb-6">
             Stay informed on the status of our cheats and hacks, with real-time updates to keep you in the loop.
           </p>
+          <Button
+            onClick={() => loadProducts()}
+            variant="outline"
+            size="sm"
+            disabled={loading}
+            className="bg-[#1a1a1a] border-[#262626] text-white hover:bg-[#262626]"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            Refresh Status
+          </Button>
         </div>
       </section>
 
@@ -137,104 +147,84 @@ export default function StatusPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Status Legend */}
           <div className="flex flex-wrap items-center justify-center gap-3 mb-8">
-            <span className="text-white font-semibold mr-2">Status</span>
-            {Object.entries(statusConfig).map(([key, config]) => (
-              <div
-                key={key}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${config.bg} border ${config.border}`}
-              >
-                <span className={`w-2 h-2 rounded-full ${config.dotColor}`} />
-                <span className={`text-xs font-medium ${config.color}`}>{config.label}</span>
-              </div>
-            ))}
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20">
-              <span className="w-2 h-2 rounded-full bg-white" />
-              <span className="text-xs font-medium text-white">0 HOURS</span>
+            <span className="text-white font-semibold mr-2">Status Legend:</span>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/20 border border-green-500/30">
+              <span className="w-2 h-2 rounded-full bg-green-400" />
+              <span className="text-xs font-medium text-green-400">UNDETECTED (WORKING)</span>
             </div>
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#dc2626]/20 border border-[#dc2626]/30">
-              <span className="w-2 h-2 rounded-full bg-[#dc2626]" />
-              <span className="text-xs font-medium text-[#dc2626]">100+ HOURS</span>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-yellow-500/20 border border-yellow-500/30">
+              <span className="w-2 h-2 rounded-full bg-yellow-400" />
+              <span className="text-xs font-medium text-yellow-400">UPDATING (NOT WORKING)</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/20 border border-red-500/30">
+              <span className="w-2 h-2 rounded-full bg-red-400" />
+              <span className="text-xs font-medium text-red-400">DETECTED (NOT WORKING)</span>
             </div>
           </div>
 
-          {/* Game Filter Tabs */}
-          <div className="mb-8 overflow-x-auto pb-2">
-            <div className="flex items-center gap-2 min-w-max">
-              {gameCategories.map((category) => (
-                <button
-                  key={category}
-                  onClick={() => setActiveFilter(category)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 whitespace-nowrap ${
-                    activeFilter === category
-                      ? "bg-[#dc2626] text-white"
-                      : "bg-[#1a1a1a] text-white/60 hover:text-white hover:bg-[#262626]"
-                  }`}
-                >
-                  {category}
-                </button>
-              ))}
+          {/* Products List by Game */}
+          {loading && products.length === 0 ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#dc2626]" />
             </div>
-            {/* Active tab underline */}
-            <div className="h-0.5 bg-[#dc2626] mt-2 rounded-full" />
-          </div>
-
-          {/* Cheats List by Game */}
-          <div className="space-y-8">
-            {Object.entries(groupedCheats).map(([game, cheats]) => (
-              <div key={game}>
-                <h2 className="text-white font-bold text-lg mb-4 uppercase tracking-wider">{game}</h2>
-                <div className="space-y-3">
-                  {cheats.map((cheat) => {
-                    const config = statusConfig[cheat.status];
-                    return (
+          ) : (
+            <div className="space-y-8">
+              {Object.entries(groupedProducts).map(([game, gameProducts]) => (
+                <div key={game}>
+                  <h2 className="text-white font-bold text-lg mb-4 uppercase tracking-wider">{game}</h2>
+                  <div className="space-y-3">
+                    {gameProducts.map((product) => (
                       <div
-                        key={cheat.id}
+                        key={product.id}
                         className="bg-[#111111] border border-[#1a1a1a] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-[#dc2626]/30 transition-colors"
                       >
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-12 rounded-lg bg-[#1a1a1a] overflow-hidden relative flex-shrink-0">
-                            <Image
-                              src={cheat.image || "/placeholder.svg"}
-                              alt={cheat.name}
-                              fill
-                              className="object-cover"
-                            />
+                            {product.image ? (
+                              <Image
+                                src={product.image}
+                                alt={product.name}
+                                fill
+                                className="object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <span className="text-white/20 text-xs">No image</span>
+                              </div>
+                            )}
                           </div>
                           <div>
-                            <h3 className="text-white font-semibold">{cheat.name}</h3>
+                            <h3 className="text-white font-semibold">{product.name}</h3>
                           </div>
                         </div>
 
                         <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-                          <div className="text-right">
-                            <p className="text-white/40 text-xs uppercase">Undetected Since:</p>
-                            <p className="text-white text-sm">{cheat.windows}</p>
-                          </div>
-
-                          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${config.bg} border ${config.border}`}>
-                            <span className={`w-2 h-2 rounded-full ${config.dotColor}`} />
-                            <span className={`text-xs font-medium ${config.color} whitespace-nowrap`}>{config.label}</span>
+                          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${getStatusColor(product.status)}`}>
+                            <span className={`w-2 h-2 rounded-full ${getStatusDotColor(product.status)}`} />
+                            <span className="text-xs font-medium whitespace-nowrap">{getStatusText(product.status)}</span>
                           </div>
 
                           <Link
-                            href={`/store/${cheat.slug}`}
+                            href={`/store/${product.game.toLowerCase().replace(/\s+/g, "-")}/${product.slug}`}
                             className="px-5 py-2 bg-[#dc2626] hover:bg-[#ef4444] text-white text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
                           >
                             Purchase Now
                           </Link>
                         </div>
                       </div>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
 
-          {/* No results */}
-          {Object.keys(groupedCheats).length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-white/50">No cheats found for this category.</p>
+          {/* No products */}
+          {products.length === 0 && !loading && (
+            <div className="text-center py-16 bg-[#111111] border border-[#1a1a1a] rounded-xl">
+              <AlertCircle className="w-12 h-12 text-white/20 mx-auto mb-4" />
+              <h3 className="text-xl font-bold text-white mb-2">No Products Yet</h3>
+              <p className="text-white/50">Add products in the admin panel to see them here</p>
             </div>
           )}
 
@@ -252,6 +242,11 @@ export default function StatusPage() {
             >
               Join Discord
             </a>
+          </div>
+
+          {/* Last Updated */}
+          <div className="mt-8 text-center text-sm text-white/30">
+            Last page refresh: {new Date().toLocaleString()} • Auto-refreshes every 30 seconds
           </div>
         </div>
       </section>

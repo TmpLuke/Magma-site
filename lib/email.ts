@@ -1,10 +1,8 @@
 "use server";
 
-import { Resend } from "resend";
+import { sendEmail } from "@/lib/resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-interface SendPurchaseEmailParams {
+export interface SendPurchaseEmailParams {
   customerEmail: string;
   orderNumber: string;
   productName: string;
@@ -16,28 +14,20 @@ interface SendPurchaseEmailParams {
 
 export async function sendPurchaseEmail(params: SendPurchaseEmailParams) {
   try {
-    console.log("[Email] Sending purchase confirmation to:", params.customerEmail);
-
-    const { data, error } = await resend.emails.send({
-      from: "Magma Cheats <orders@magmacheats.com>",
-      to: [params.customerEmail],
+    const result = await sendEmail({
+      to: params.customerEmail,
       subject: `Your Magma Cheats Order - ${params.orderNumber}`,
       html: generatePurchaseEmailHTML(params),
     });
 
-    if (error) {
-      console.error("[Email] Resend error:", error);
-      return { success: false, error: error.message };
+    if (!result.success) {
+      return { success: false as const, error: result.error };
     }
 
-    console.log("[Email] Successfully sent email:", data?.id);
-    return { success: true, emailId: data?.id };
-  } catch (error) {
-    console.error("[Email] Exception:", error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : "Failed to send email" 
-    };
+    return { success: true as const, emailId: result.id };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Failed to send email";
+    return { success: false as const, error: msg };
   }
 }
 
@@ -178,8 +168,8 @@ function generatePurchaseEmailHTML(params: SendPurchaseEmailParams): string {
               <p style="margin: 0 0 15px 0; font-size: 14px; color: rgba(255, 255, 255, 0.6);">
                 Our support team is here to assist you 24/7
               </p>
-              <a href="https://magma-site-one.vercel.app/account" style="display: inline-block; padding: 12px 30px; background-color: #dc2626; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px;">
-                Visit Dashboard
+              <a href="https://discord.gg/magmacheats" style="display: inline-block; padding: 12px 30px; background-color: #dc2626; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px;">
+                Join Discord
               </a>
             </td>
           </tr>
@@ -188,7 +178,7 @@ function generatePurchaseEmailHTML(params: SendPurchaseEmailParams): string {
           <tr>
             <td style="padding: 30px; text-align: center; border-top: 1px solid #1a1a1a;">
               <p style="margin: 0 0 10px 0; font-size: 14px; color: rgba(255, 255, 255, 0.5);">
-                © 2026 Magma Cheats. All rights reserved.
+                © ${new Date().getFullYear()} Magma Cheats. All rights reserved.
               </p>
               <p style="margin: 0; font-size: 12px; color: rgba(255, 255, 255, 0.4);">
                 This email was sent to ${params.customerEmail}

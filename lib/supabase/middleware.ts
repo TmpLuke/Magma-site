@@ -5,6 +5,9 @@ export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   })
+  
+  // Add pathname header for admin layout authentication
+  supabaseResponse.headers.set('x-pathname', request.nextUrl.pathname)
 
   // Check if Supabase credentials are available
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL

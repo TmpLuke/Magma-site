@@ -162,14 +162,27 @@ export function AdminHeader({ title, subtitle }: AdminHeaderProps) {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48 bg-[#111111] border-[#262626]">
-            <DropdownMenuItem className="text-white/70 focus:bg-[#1a1a1a] focus:text-white">
-              Profile
-            </DropdownMenuItem>
-            <DropdownMenuItem className="text-white/70 focus:bg-[#1a1a1a] focus:text-white">
+            <DropdownMenuItem 
+              onClick={() => window.location.href = "/mgmt-x9k2m7/settings"}
+              className="text-white/70 focus:bg-[#1a1a1a] focus:text-white cursor-pointer"
+            >
               Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-[#262626]" />
-            <DropdownMenuItem className="text-red-400 focus:bg-[#1a1a1a] focus:text-red-400">
+            <DropdownMenuItem 
+              onClick={async () => {
+                try {
+                  const response = await fetch("/api/admin/logout", { method: "POST" });
+                  if (response.ok) {
+                    window.location.href = "/mgmt-x9k2m7/login";
+                  }
+                } catch (error) {
+                  console.error("Logout failed:", error);
+                  window.location.href = "/mgmt-x9k2m7/login";
+                }
+              }}
+              className="text-red-400 focus:bg-[#1a1a1a] focus:text-red-400 cursor-pointer"
+            >
               Logout
             </DropdownMenuItem>
           </DropdownMenuContent>

@@ -174,7 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { success: true };
   };
 
-  const changePassword = async (currentPassword: string, newPassword: string): Promise<{ success: boolean; error?: string }> => {
+  const updatePassword = async (updates: {password: string}): Promise<{ success: boolean; error?: string; }> => {
     if (!user) {
       return { success: false, error: "Not logged in" };
     }
@@ -182,30 +182,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Simulate API delay
     await new Promise((resolve) => setTimeout(resolve, 500));
 
+    // Update in-memory store
     const storedUser = users.get(user.email.toLowerCase());
-    
-    if (!storedUser) {
-      return { success: false, error: "User not found" };
+    if (storedUser) {
+      users.set(user.email.toLowerCase(), {
+        ...storedUser,
+        password: updates.password,
+      });
     }
-
-    if (storedUser.password !== currentPassword) {
-      return { success: false, error: "Current password is incorrect" };
-    }
-
-    // Update password in store
-    users.set(user.email.toLowerCase(), {
-      ...storedUser,
-      password: newPassword,
-    });
-
-    // Also save to localStorage for persistence
-    localStorage.setItem("magma_user_pw", newPassword);
 
     return { success: true };
   };
 
+
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, signIn, signUp, signOut, updateProfile, changePassword }}>
+    <AuthContext.Provider value={{ user, isLoading, signIn, signUp, signOut, updateProfile, updatePassword }}>
       {children}
     </AuthContext.Provider>
   );

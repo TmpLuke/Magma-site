@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Flame, Lock, Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
 import { verifyAdminPassword } from "@/lib/admin-auth";
+import Link from "next/link";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -117,6 +118,17 @@ export default function AdminLoginPage() {
               This area is restricted to authorized personnel only.
               All access attempts are logged.
             </p>
+          </div>
+
+          {/* Staff Login Link */}
+          <div className="mt-4 text-center">
+            <p className="text-gray-500 text-sm mb-2">Are you a team member?</p>
+            <Link
+              href="/staff/login"
+              className="text-[#dc2626] hover:text-[#ef4444] text-sm font-medium transition-colors"
+            >
+              Staff Login →
+            </Link>
           </div>
         </div>
       </div>

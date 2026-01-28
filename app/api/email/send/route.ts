@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { isResendConfigured, sendEmail } from "@/lib/resend";
 
-// Email sending API route
-// This processes emails from the outbound_emails queue
+// Email sending API route – processes outbound_emails queue via Resend
 
 interface EmailTemplateData {
   orderNumber: string;
@@ -253,66 +253,49 @@ export async function POST(request: NextRequest) {
           textContent = generatePlainTextEmail(templateData);
         }
 
-        // Send email using Resend or other email service
-        // For now, we'll use a simple fetch to Resend API if available
-        const resendApiKey = process.env.RESEND_API_KEY;
+        if (!htmlContent) {
+          await supabase
+            .from("outbound_emails")
+            .update({ status: "failed", error_message: "Unsupported template or missing template_data" })
+            .eq("id", email.id);
+          results.push({ id: email.id, status: "failed", error: "Unsupported template" });
+          continue;
+        }
 
-        if (resendApiKey) {
-          const response = await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${resendApiKey}`,
-            },
-            body: JSON.stringify({
-              from: process.env.EMAIL_FROM || "Magma Cheats <noreply@magmacheats.com>",
-              to: email.to_email,
-              subject: email.subject,
-              html: htmlContent,
-              text: textContent,
-            }),
-          });
-
-          if (response.ok) {
-            // Mark as sent
-            await supabase
-              .from("outbound_emails")
-              .update({
-                status: "sent",
-                sent_at: new Date().toISOString(),
-              })
-              .eq("id", email.id);
-
-            results.push({ id: email.id, status: "sent" });
-          } else {
-            const errorData = await response.json();
-            console.error("[Email] Resend error:", errorData);
-
-            // Mark as failed
-            await supabase
-              .from("outbound_emails")
-              .update({
-                status: "failed",
-                error_message: JSON.stringify(errorData),
-              })
-              .eq("id", email.id);
-
-            results.push({ id: email.id, status: "failed", error: errorData });
-          }
-        } else {
-          // No email service configured, mark as sent (demo mode)
-          console.log("[Email] No RESEND_API_KEY configured, simulating send to:", email.to_email);
-          
+        if (!isResendConfigured()) {
           await supabase
             .from("outbound_emails")
             .update({
-              status: "sent",
-              sent_at: new Date().toISOString(),
-              error_message: "Demo mode - no email service configured",
+              status: "failed",
+              error_message: "RESEND_API_KEY not set. Add it to .env.",
             })
             .eq("id", email.id);
+          results.push({ id: email.id, status: "failed", error: "Resend not configured" });
+          continue;
+        }
 
-          results.push({ id: email.id, status: "sent (demo mode)" });
+        const emailResult = await sendEmail({
+          to: email.to_email,
+          subject: email.subject,
+          html: htmlContent,
+          text: textContent || undefined,
+        });
+
+        if (emailResult.success) {
+          await supabase
+            .from("outbound_emails")
+            .update({ status: "sent", sent_at: new Date().toISOString() })
+            .eq("id", email.id);
+          results.push({ id: email.id, status: "sent" });
+        } else {
+          await supabase
+            .from("outbound_emails")
+            .update({
+              status: "failed",
+              error_message: emailResult.error,
+            })
+            .eq("id", email.id);
+          results.push({ id: email.id, status: "failed", error: emailResult.error });
         }
       } catch (emailError) {
         console.error("[Email] Error processing email:", email.id, emailError);

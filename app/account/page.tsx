@@ -149,7 +149,7 @@ const mockAddresses = [
 ];
 
 export default function AccountPage() {
-  const { user, signOut, isLoading, updateProfile, changePassword } = useAuth();
+  const { user, signOut, isLoading, updateProfile, updatePassword } = useAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>("dashboard");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -251,7 +251,9 @@ export default function AccountPage() {
 
     setIsChangingPassword(true);
 
-    const result = await changePassword(securityForm.currentPassword, securityForm.newPassword);
+    const result = await updatePassword({
+      password: securityForm.newPassword,
+    });
 
     setIsChangingPassword(false);
 

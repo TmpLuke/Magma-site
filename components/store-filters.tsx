@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useMemo, useRef, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ExternalLink, ChevronLeft, ChevronRight, Gamepad2 } from "lucide-react";
@@ -24,19 +24,13 @@ function gameToSlug(game: string): string {
 }
 
 export function StoreFilters({ products }: { products: Product[] }) {
-  const [selectedGame, setSelectedGame] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
 
-  const filteredProducts = useMemo(() => {
-    if (!selectedGame) return products;
-    return products.filter((product) => product.game === selectedGame);
-  }, [products, selectedGame]);
-
   const games = useMemo(() => {
-    const gameSet = new Set(products.map((p) => p.game));
-    return Array.from(gameSet);
+    const gameSet = new Set(products.map((p) => p.game).filter(Boolean));
+    return Array.from(gameSet) as string[];
   }, [products]);
 
   const checkScroll = () => {
@@ -68,7 +62,10 @@ export function StoreFilters({ products }: { products: Product[] }) {
 
   return (
     <>
-      {/* Enhanced Game Filter Slider */}
+      {/* Browse by category */}
+      <p className="text-white/50 text-sm mb-4 text-center">
+        Browse by category — click a game to view its products
+      </p>
       <div className="relative mb-8">
         {/* Desktop View - Beautiful Horizontal Slider with Navigation */}
         <div className="hidden md:block">
@@ -93,46 +90,28 @@ export function StoreFilters({ products }: { products: Product[] }) {
                 msOverflowStyle: 'none',
               }}
             >
-              {/* ALL Button */}
-              <button
-                onClick={() => setSelectedGame(null)}
-                className={`relative flex-shrink-0 px-8 py-4 rounded-2xl text-sm font-bold transition-all duration-300 overflow-hidden group/btn ${
-                  !selectedGame
-                    ? "bg-gradient-to-r from-[#dc2626] to-[#ef4444] text-white shadow-xl shadow-[#dc2626]/40 scale-105"
-                    : "bg-[#111111] text-white/70 hover:bg-[#1a1a1a] border-2 border-[#dc2626]/30 hover:border-[#dc2626]/60 hover:scale-105"
-                }`}
+              {/* ALL → Store */}
+              <Link
+                href="/store"
+                className="relative flex-shrink-0 px-8 py-4 rounded-2xl text-sm font-bold transition-all duration-300 overflow-hidden group/btn bg-gradient-to-r from-[#dc2626] to-[#ef4444] text-white shadow-xl shadow-[#dc2626]/40 scale-105"
               >
-                {!selectedGame && (
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
-                )}
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
                 <div className="relative flex items-center gap-2">
                   <Gamepad2 className="w-4 h-4" />
                   <span>ALL GAMES</span>
                 </div>
-                {!selectedGame && (
-                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/50 rounded-full" />
-                )}
-              </button>
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/50 rounded-full" />
+              </Link>
 
-              {/* Game Buttons */}
+              {/* Game → Category pages */}
               {games.map((game) => (
-                <button
+                <Link
                   key={game}
-                  onClick={() => setSelectedGame(game)}
-                  className={`relative flex-shrink-0 px-8 py-4 rounded-2xl text-sm font-bold transition-all duration-300 overflow-hidden group/btn ${
-                    selectedGame === game
-                      ? "bg-gradient-to-r from-[#dc2626] to-[#ef4444] text-white shadow-xl shadow-[#dc2626]/40 scale-105"
-                      : "bg-[#111111] text-white/70 hover:bg-[#1a1a1a] border-2 border-[#dc2626]/30 hover:border-[#dc2626]/60 hover:scale-105"
-                  }`}
+                  href={`/store/${gameToSlug(game)}`}
+                  className="relative flex-shrink-0 px-8 py-4 rounded-2xl text-sm font-bold transition-all duration-300 overflow-hidden group/btn bg-[#111111] text-white/70 hover:bg-[#1a1a1a] border-2 border-[#dc2626]/30 hover:border-[#dc2626]/60 hover:scale-105"
                 >
-                  {selectedGame === game && (
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
-                  )}
                   <span className="relative">{game === "Universal" ? "HWID SPOOFERS" : game.toUpperCase()}</span>
-                  {selectedGame === game && (
-                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/50 rounded-full" />
-                  )}
-                </button>
+                </Link>
               ))}
             </div>
 
@@ -148,11 +127,11 @@ export function StoreFilters({ products }: { products: Product[] }) {
             )}
           </div>
 
-          {/* Product Count Indicator */}
+          {/* Product Count */}
           <div className="text-center mt-4">
             <p className="text-white/50 text-sm flex items-center justify-center gap-2">
               <span className="w-2 h-2 rounded-full bg-[#dc2626] animate-pulse" />
-              Showing <span className="text-white font-semibold">{filteredProducts.length}</span> {filteredProducts.length === 1 ? 'product' : 'products'}
+              <span className="text-white font-semibold">{products.length}</span> {products.length === 1 ? "product" : "products"} • click a game to view by category
             </p>
           </div>
         </div>
@@ -160,33 +139,23 @@ export function StoreFilters({ products }: { products: Product[] }) {
         {/* Mobile View - Compact Swipeable Slider */}
         <div className="md:hidden">
           <div className="relative">
-            {/* Gradient Fade Edges */}
             <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-[#0a0a0a] to-transparent z-10 pointer-events-none" />
             <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#0a0a0a] to-transparent z-10 pointer-events-none" />
-            
             <div className="flex gap-3 overflow-x-auto pb-4 px-2 scrollbar-hide scroll-smooth">
-              <button
-                onClick={() => setSelectedGame(null)}
-                className={`flex-shrink-0 px-6 py-3 rounded-xl text-sm font-bold transition-all duration-200 active:scale-95 ${
-                  !selectedGame
-                    ? "bg-gradient-to-r from-[#dc2626] to-[#ef4444] text-white shadow-lg shadow-[#dc2626]/40"
-                    : "bg-[#1a1a1a] text-white/80 border-2 border-[#333] active:bg-[#262626]"
-                }`}
+              <Link
+                href="/store"
+                className="flex-shrink-0 px-6 py-3 rounded-xl text-sm font-bold transition-all duration-200 active:scale-95 bg-gradient-to-r from-[#dc2626] to-[#ef4444] text-white shadow-lg shadow-[#dc2626]/40"
               >
                 ALL
-              </button>
+              </Link>
               {games.map((game) => (
-                <button
+                <Link
                   key={game}
-                  onClick={() => setSelectedGame(game)}
-                  className={`flex-shrink-0 px-6 py-3 rounded-xl text-sm font-bold transition-all duration-200 active:scale-95 ${
-                    selectedGame === game
-                      ? "bg-gradient-to-r from-[#dc2626] to-[#ef4444] text-white shadow-lg shadow-[#dc2626]/40"
-                      : "bg-[#1a1a1a] text-white/80 border-2 border-[#333] active:bg-[#262626]"
-                  }`}
+                  href={`/store/${gameToSlug(game)}`}
+                  className="flex-shrink-0 px-6 py-3 rounded-xl text-sm font-bold transition-all duration-200 active:scale-95 bg-[#1a1a1a] text-white/80 border-2 border-[#333] active:bg-[#262626]"
                 >
                   {game === "Universal" ? "SPOOFER" : game.toUpperCase()}
-                </button>
+                </Link>
               ))}
             </div>
           </div>
@@ -204,9 +173,9 @@ export function StoreFilters({ products }: { products: Product[] }) {
       </div>
 
       {/* Products Grid */}
-      {filteredProducts.length > 0 ? (
+      {products.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-5">
-          {filteredProducts.map((product) => (
+          {products.map((product) => (
             <Link
               key={product.id}
               href={`/store/${gameToSlug(product.game)}/${product.slug}`}
@@ -271,8 +240,11 @@ export function StoreFilters({ products }: { products: Product[] }) {
       ) : (
         <div className="text-center py-20 bg-[#111111] border border-[#1a1a1a] rounded-2xl">
           <Gamepad2 className="w-16 h-16 text-white/20 mx-auto mb-4" />
-          <p className="text-white/50 text-lg mb-2">No products found</p>
-          <p className="text-white/30 text-sm">Try selecting a different game</p>
+            <p className="text-white/50 text-lg mb-2">No products yet</p>
+            <p className="text-white/30 text-sm">Add products in the admin to see them here</p>
+            <Link href="/store" className="inline-block mt-4 text-[#dc2626] hover:text-[#ef4444] text-sm font-medium">
+              ← Back to store
+            </Link>
         </div>
       )}
 

@@ -19,6 +19,9 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { processPurchase, validateCoupon } from "@/lib/purchase-actions";
+import { useCart } from "@/lib/cart-context";
+import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
 
 interface Product {
   id: string;
@@ -113,11 +116,15 @@ const getProductReviews = (productName: string) => {
 };
 
 export function ProductDetailClient({ product, reviews, gameSlug }: { product: Product; reviews: Review[]; gameSlug?: string }) {
+  const router = useRouter();
+  const { addToCart } = useCart();
+  const { toast } = useToast();
   const [quantity, setQuantity] = useState(1);
   const [selectedPriceIndex, setSelectedPriceIndex] = useState(0);
   const [cpuConfirmed, setCpuConfirmed] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [selectedImage, setSelectedImage] = useState(0);
   
   // Checkout modal state
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
@@ -133,6 +140,38 @@ export function ProductDetailClient({ product, reviews, gameSlug }: { product: P
     orderNumber: string;
     licenseKey: string;
   } | null>(null);
+
+  const handleAddToCart = () => {
+    if (!cpuConfirmed) {
+      toast({
+        title: "CPU Confirmation Required",
+        description: "Please confirm you have an Intel CPU before adding to cart.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const selectedTier = product.pricing[selectedPriceIndex];
+    addToCart({
+      productId: product.id,
+      productName: product.name,
+      productSlug: product.slug,
+      game: product.game,
+      image: product.image,
+      duration: selectedTier.duration,
+      price: selectedTier.price,
+      quantity: quantity,
+    });
+    toast({
+      title: "Added to Cart",
+      description: `${product.name} (${selectedTier.duration}) x${quantity} added to cart.`,
+      className: "border-green-500/20 bg-green-500/10",
+    });
+  };
+
+  const handleBuyNow = () => {
+    if (!cpuConfirmed) return;
+    setShowCheckoutModal(true);
+  };
 
   const handleOpenCheckout = () => {
     if (!cpuConfirmed) return;
@@ -249,50 +288,63 @@ export function ProductDetailClient({ product, reviews, gameSlug }: { product: P
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-          {/* Product Image with Stacked Card Effect */}
-          <div className="bg-[#111111] border border-[#1a1a1a] rounded-xl p-6 lg:p-8">
-            <div className="relative flex items-center justify-center py-8">
-              {/* Stacked cards behind - Card 3 (back) */}
-              <div className="absolute w-[85%] aspect-[3/4] rounded-2xl bg-[#1a1a1a] border border-[#262626] transform rotate-6 translate-x-4 translate-y-4 opacity-40" />
-              
-              {/* Stacked cards behind - Card 2 (middle) */}
-              <div className="absolute w-[85%] aspect-[3/4] rounded-2xl bg-[#151515] border border-[#262626] transform rotate-3 translate-x-2 translate-y-2 opacity-60" />
-              
-              {/* Main product card */}
-              <div className="relative w-[85%] aspect-[3/4] rounded-2xl overflow-hidden border-2 border-[#262626] shadow-2xl shadow-black/50 bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a]">
-                <Image
-                  src={product.image || "/placeholder.svg"}
-                  alt={product.name}
-                  fill
-                  className="object-cover"
-                />
-                
-                {/* Bottom gradient with game name */}
-                <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-black/90 via-black/60 to-transparent" />
-                <div className="absolute bottom-4 left-0 right-0 text-center">
-                  <span 
-                    className="text-white font-bold text-2xl uppercase tracking-widest"
-                    style={{ textShadow: "0 2px 10px rgba(0,0,0,0.8)" }}
-                  >
-                    {product.game.split(":")[0]}
-                  </span>
-                </div>
-              </div>
+          {/* Left: Image Gallery */}
+          <div className="space-y-4">
+            {/* Main Image - Full Fit */}
+            <div className="relative w-full bg-[#111111] border border-[#1a1a1a] rounded-xl overflow-hidden" style={{ aspectRatio: "16/9" }}>
+              <Image
+                src={product.gallery && product.gallery.length > 0 && selectedImage < product.gallery.length
+                  ? product.gallery[selectedImage]
+                  : product.image || "/placeholder.svg"}
+                alt={product.name}
+                fill
+                className="object-cover"
+                priority
+                sizes="(max-width: 768px) 100vw, 50vw"
+              />
             </div>
+            
+            {/* Thumbnail Gallery - Only show if gallery images exist */}
+            {product.gallery && product.gallery.length > 0 && (
+              <div className="flex gap-3 flex-wrap">
+                {product.gallery.map((img, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setSelectedImage(idx)}
+                    className={`relative w-24 h-16 rounded-lg overflow-hidden border-2 transition-all flex-shrink-0 ${
+                      selectedImage === idx
+                        ? "border-[#dc2626] ring-2 ring-[#dc2626]/50"
+                        : "border-[#1a1a1a] hover:border-[#262626]"
+                    }`}
+                  >
+                    <Image
+                      src={img}
+                      alt={`${product.name} ${idx + 1}`}
+                      fill
+                      className="object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Product Details */}
-          <div className="bg-[#111111] border border-[#1a1a1a] rounded-xl p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1a1a1a] text-white text-sm">
+          {/* Right: Product Details */}
+          <div className="space-y-6">
+            {/* Product Name */}
+            <h1 className="text-4xl md:text-5xl font-bold text-white">{product.name}</h1>
+            
+            {/* Status Badges */}
+            <div className="flex items-center gap-3">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1a1a1a] text-white text-sm border border-[#262626]">
                 <Zap className="w-4 h-4 text-[#dc2626]" />
                 Instant Delivery
               </span>
               <span
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm ${
                   product.status === "active"
-                    ? "bg-green-500/20 text-green-400"
-                    : "bg-yellow-500/20 text-yellow-400"
+                    ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                    : "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
                 }`}
               >
                 <Shield className="w-4 h-4" />
@@ -300,50 +352,53 @@ export function ProductDetailClient({ product, reviews, gameSlug }: { product: P
               </span>
             </div>
 
-            {/* Price */}
-            <div className="mb-6">
-              <p className="text-3xl font-bold text-white">
-                ${(product.pricing[selectedPriceIndex].price * quantity).toFixed(2)}
+            {/* Price Display */}
+            <div className="flex items-center gap-4">
+              <p className="text-4xl font-bold text-white">
+                ${product.pricing[selectedPriceIndex].price.toFixed(2)}
               </p>
+              {/* Quantity Selector */}
+              <div className="flex items-center gap-2 bg-[#1a1a1a] rounded-lg p-1 border border-[#262626]">
+                <button
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  className="w-8 h-8 rounded bg-[#dc2626] hover:bg-[#ef4444] flex items-center justify-center text-white transition-colors"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <span className="w-8 text-center text-white font-bold">{quantity}</span>
+                <button
+                  onClick={() => setQuantity(quantity + 1)}
+                  className="w-8 h-8 rounded bg-[#dc2626] hover:bg-[#ef4444] flex items-center justify-center text-white transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
-            {/* Duration Selection */}
-            <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-6">
+            {/* Variant Cards - Stacked Vertically */}
+            <div className="space-y-3">
               {product.pricing.map((tier, index) => (
                 <button
                   key={index}
                   onClick={() => setSelectedPriceIndex(index)}
-                  className={`p-2.5 sm:p-4 rounded-xl border-2 transition-all duration-300 active:scale-[0.98] ${
+                  className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
                     selectedPriceIndex === index
                       ? "bg-[#dc2626] border-[#dc2626] text-white shadow-lg shadow-[#dc2626]/30"
-                      : "bg-[#0a0a0a] border-[#1a1a1a] text-white hover:border-[#dc2626]/50"
+                      : "bg-[#1a1a1a] border-[#262626] text-white hover:border-[#dc2626]/50 hover:bg-[#1f1f1f]"
                   }`}
                 >
-                  <p className="text-[10px] sm:text-xs text-white/60 uppercase mb-0.5 sm:mb-1">{tier.duration}</p>
-                  <p className="font-bold text-sm sm:text-base">${tier.price.toFixed(2)}</p>
-                  <p className="text-[10px] sm:text-xs text-white/50 mt-0.5 sm:mt-1">STOCK: {tier.stock}</p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold uppercase mb-1">{tier.duration}</p>
+                      <p className="font-bold text-xl">${tier.price.toFixed(2)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-white/60 mb-1">STOCK</p>
+                      <p className="text-sm font-semibold">{tier.stock}</p>
+                    </div>
+                  </div>
                 </button>
               ))}
-            </div>
-
-            {/* Quantity */}
-            <div className="flex items-center justify-between mb-6 bg-[#0a0a0a] rounded-xl p-4">
-              <span className="text-white/60 text-sm sm:text-base">Quantity</span>
-              <div className="flex items-center gap-2 sm:gap-3">
-                <button
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-[#dc2626] hover:bg-[#ef4444] flex items-center justify-center text-white transition-colors active:scale-95"
-                >
-                  <Minus className="w-4 h-4 sm:w-5 sm:h-5" />
-                </button>
-                <span className="w-10 sm:w-12 text-center text-white font-bold text-lg">{quantity}</span>
-                <button
-                  onClick={() => setQuantity(quantity + 1)}
-                  className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-[#dc2626] hover:bg-[#ef4444] flex items-center justify-center text-white transition-colors active:scale-95"
-                >
-                  <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-                </button>
-              </div>
             </div>
 
             {/* CPU Confirmation */}
@@ -379,19 +434,32 @@ export function ProductDetailClient({ product, reviews, gameSlug }: { product: P
               </div>
             )}
 
-            {/* Checkout Button */}
-            <button
-              onClick={handleOpenCheckout}
-              disabled={!cpuConfirmed}
-              className={`w-full py-4 rounded-lg font-semibold text-lg transition-all duration-300 flex items-center justify-center gap-2 ${
-                cpuConfirmed
-                  ? "bg-[#dc2626] text-white hover:bg-[#ef4444] hover:shadow-lg hover:shadow-[#dc2626]/30"
-                  : "bg-[#1a1a1a] text-white/50 cursor-not-allowed"
-              }`}
-            >
-              <ShoppingCart className="w-5 h-5" />
-              Add To Cart - ${(product.pricing[selectedPriceIndex].price * quantity).toFixed(2)}
-            </button>
+            {/* Action Buttons */}
+            <div className="space-y-3">
+              <button
+                onClick={handleAddToCart}
+                disabled={!cpuConfirmed}
+                className={`w-full py-4 rounded-lg font-semibold text-lg transition-all duration-300 flex items-center justify-center gap-2 ${
+                  cpuConfirmed
+                    ? "bg-white text-[#0a0a0a] hover:bg-white/90"
+                    : "bg-[#1a1a1a] text-white/50 cursor-not-allowed"
+                }`}
+              >
+                <ShoppingCart className="w-5 h-5" />
+                Add To Cart
+              </button>
+              <button
+                onClick={handleBuyNow}
+                disabled={!cpuConfirmed}
+                className={`w-full py-4 rounded-lg font-semibold text-lg transition-all duration-300 flex items-center justify-center gap-2 ${
+                  cpuConfirmed
+                    ? "bg-[#dc2626] text-white hover:bg-[#ef4444] hover:shadow-lg hover:shadow-[#dc2626]/30"
+                    : "bg-[#1a1a1a] text-white/50 cursor-not-allowed"
+                }`}
+              >
+                Buy Now - ${(product.pricing[selectedPriceIndex].price * quantity).toFixed(2)}
+              </button>
+            </div>
           </div>
         </div>
 

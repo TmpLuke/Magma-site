@@ -22,6 +22,8 @@ export default function AdminDashboard() {
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
   useEffect(() => {
+    let cancelled = false;
+    const timeout = setTimeout(() => setLoading(false), 15000);
     async function loadStats() {
       try {
         const supabase = createClient();
@@ -124,11 +126,14 @@ export default function AdminDashboard() {
       } catch (error) {
         console.error("Failed to load stats:", error);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
-
     loadStats();
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
   }, []);
 
   useEffect(() => {

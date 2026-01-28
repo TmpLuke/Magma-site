@@ -20,13 +20,16 @@ export function AdminShell({ children, title, subtitle }: AdminShellProps) {
 
   useEffect(() => {
     setMounted(true);
+    const t = setTimeout(() => setMounted(true), 1200);
+    return () => clearTimeout(t);
   }, []);
 
-  // Show loading state during hydration
   if (!mounted) {
     return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#dc2626]" />
+      <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center gap-4">
+        <div className="animate-spin rounded-full h-10 w-10 border-2 border-[#262626] border-t-[#dc2626]" />
+        <p className="text-white/40 text-sm">Loading…</p>
+        <Toaster />
       </div>
     );
   }

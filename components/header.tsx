@@ -11,20 +11,24 @@ import {
   X,
   Menu,
   Home,
+  ShoppingCart,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { mockProducts } from "@/lib/admin-mock-data";
 import { AuthDropdown } from "@/components/auth-dropdown";
+import { useCart } from "@/lib/cart-context";
 
 export function Header() {
   const router = useRouter();
+  const { getItemCount } = useCart();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<typeof mockProducts>([]);
   const [showResults, setShowResults] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const cartCount = getItemCount();
 
   // Handle search
   useEffect(() => {
@@ -226,8 +230,19 @@ export function Header() {
               )}
             </div>
 
-            {/* Auth Dropdown */}
-            <div className="hidden md:block">
+            {/* Cart & Auth Dropdown */}
+            <div className="hidden md:flex items-center gap-3">
+              <Link
+                href="/cart"
+                className="relative p-2 text-white/60 hover:text-white transition-colors"
+              >
+                <ShoppingCart className="w-5 h-5" />
+                {cartCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#dc2626] text-white text-xs font-bold rounded-full flex items-center justify-center">
+                    {cartCount > 9 ? "9+" : cartCount}
+                  </span>
+                )}
+              </Link>
               <AuthDropdown />
             </div>
 
@@ -344,8 +359,22 @@ export function Header() {
               )}
             </div>
 
-            {/* Mobile Auth Section */}
-            <div className="px-5 py-4 border-b border-[#1a1a1a]">
+            {/* Mobile Cart & Auth Section */}
+            <div className="px-5 py-4 border-b border-[#1a1a1a] space-y-3">
+              <Link
+                href="/cart"
+                className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#1a1a1a] transition-colors"
+              >
+                <div className="relative">
+                  <ShoppingCart className="w-5 h-5 text-white/60" />
+                  {cartCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#dc2626] text-white text-xs font-bold rounded-full flex items-center justify-center">
+                      {cartCount > 9 ? "9+" : cartCount}
+                    </span>
+                  )}
+                </div>
+                <span className="text-white/80 font-medium">Cart ({cartCount})</span>
+              </Link>
               <AuthDropdown />
             </div>
 

@@ -88,11 +88,30 @@ export default function TeamPage() {
         throw new Error(result.error);
       }
 
-      toast({
-        title: "Invitation Sent!",
-        description: `Invitation email sent to ${formData.email}`,
-        className: "border-green-500/20 bg-green-500/10",
-      });
+      if (result.emailSent) {
+        toast({
+          title: "Invitation sent",
+          description: `Email sent to ${formData.email}`,
+          className: "border-green-500/20 bg-green-500/10",
+        });
+      } else if (result.inviteLink) {
+        try {
+          await navigator.clipboard.writeText(result.inviteLink);
+        } catch {
+          /* ignore */
+        }
+        toast({
+          title: "Invite created",
+          description: "Email couldn't be sent (Resend test mode: verify a domain to email others). Invite link copied to clipboard—share it with the invitee.",
+          className: "border-amber-500/20 bg-amber-500/10",
+        });
+      } else {
+        toast({
+          title: "Invite created",
+          description: `Team member added. Email sent to ${formData.email}.`,
+          className: "border-green-500/20 bg-green-500/10",
+        });
+      }
       
       setShowAddModal(false);
       resetForm();

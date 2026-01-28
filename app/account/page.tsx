@@ -30,7 +30,6 @@ import {
   LayoutDashboard,
   ShoppingBag,
   User,
-  MapPin,
   Shield,
   LogOut,
   Package,
@@ -55,7 +54,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
-type TabType = "dashboard" | "orders" | "delivered" | "profile" | "addresses" | "security";
+type TabType = "dashboard" | "orders" | "delivered" | "profile" | "security";
 
 interface Order {
   id: string;
@@ -79,31 +78,6 @@ interface License {
   order_id: string | null;
 }
 
-// Mock addresses
-const mockAddresses = [
-  {
-    id: "1",
-    label: "Home",
-    name: "John Doe",
-    street: "123 Gaming Street",
-    city: "Los Angeles",
-    state: "CA",
-    zip: "90001",
-    country: "United States",
-    isDefault: true,
-  },
-  {
-    id: "2",
-    label: "Work",
-    name: "John Doe",
-    street: "456 Tech Avenue",
-    city: "San Francisco",
-    state: "CA",
-    zip: "94102",
-    country: "United States",
-    isDefault: false,
-  },
-];
 
 export default function AccountPage() {
   const { user, signOut, isLoading, updateProfile, changePassword } = useAuth();
@@ -315,7 +289,6 @@ export default function AccountPage() {
     { id: "orders" as TabType, icon: ShoppingBag, label: "Orders" },
     { id: "delivered" as TabType, icon: Package, label: "Delivered goods" },
     { id: "profile" as TabType, icon: User, label: "Profile Settings" },
-    { id: "addresses" as TabType, icon: MapPin, label: "Addresses" },
     { id: "security" as TabType, icon: Shield, label: "Security" },
   ];
 
@@ -697,70 +670,6 @@ export default function AccountPage() {
                 </div>
               </CardContent>
             </Card>
-          </div>
-        );
-
-      case "addresses":
-        return (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-foreground">Addresses</h1>
-                <p className="text-muted-foreground mt-1">Manage your saved addresses</p>
-              </div>
-              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                Add Address
-              </Button>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              {mockAddresses.map((address) => (
-                <Card
-                  key={address.id}
-                  className={`bg-card border-border hover:border-primary/50 transition-colors ${
-                    address.isDefault ? "ring-1 ring-primary/50" : ""
-                  }`}
-                >
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-5 h-5 text-primary" />
-                        <span className="font-medium text-foreground">{address.label}</span>
-                      </div>
-                      {address.isDefault && (
-                        <Badge className="bg-primary/20 text-primary border-0">Default</Badge>
-                      )}
-                    </div>
-                    <div className="space-y-1 text-sm text-muted-foreground">
-                      <p className="text-foreground font-medium">{address.name}</p>
-                      <p>{address.street}</p>
-                      <p>
-                        {address.city}, {address.state} {address.zip}
-                      </p>
-                      <p>{address.country}</p>
-                    </div>
-                    <div className="flex gap-2 mt-4">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="bg-transparent border-border hover:bg-secondary hover:text-foreground"
-                      >
-                        Edit
-                      </Button>
-                      {!address.isDefault && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="bg-transparent border-border hover:bg-secondary hover:text-foreground"
-                        >
-                          Set as Default
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
           </div>
         );
 

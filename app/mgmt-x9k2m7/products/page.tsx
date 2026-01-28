@@ -9,9 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { RefreshCw, Plus, Edit, Trash2, Search, Package, AlertCircle, Check, X, Image as ImageIcon, Tag, Gamepad2, Server } from "lucide-react";
+import { RefreshCw, Plus, Edit, Trash2, Package, AlertCircle, Check, X, Image as ImageIcon, Tag, Gamepad2, DollarSign, Server } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { createProduct, updateProduct, deleteProduct } from "@/app/actions/admin-products";
+import { createProduct, updateProduct, deleteProduct, forceDeleteProduct, getOrdersAndLicensesForProduct, getVariantsForProduct, createVariant, updateVariant, deleteVariant, type ProductBlockers, type ProductVariantRow } from "@/app/actions/admin-products";
 
 interface Product {
   id: string;
@@ -24,6 +24,7 @@ interface Product {
   provider: string;
   features: string[];
   requirements: string[];
+  gallery?: string[] | null;
   created_at: string;
 }
 
@@ -37,6 +38,7 @@ interface ProductFormData {
   provider: string;
   features: string;
   requirements: string;
+  gallery: string[];
 }
 
 export default function ProductsPage() {
@@ -46,6 +48,12 @@ export default function ProductsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteBlockers, setDeleteBlockers] = useState<ProductBlockers | null>(null);
+  const [deleteBlockersLoading, setDeleteBlockersLoading] = useState(false);
+  const [variants, setVariants] = useState<ProductVariantRow[]>([]);
+  const [variantsLoading, setVariantsLoading] = useState(false);
+  const [variantForm, setVariantForm] = useState({ duration: "", price: "", stock: "0" });
+  const [editingVariant, setEditingVariant] = useState<ProductVariantRow | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState<ProductFormData>({
     name: "",
@@ -57,7 +65,9 @@ export default function ProductsPage() {
     provider: "Magma",
     features: "",
     requirements: "",
+    gallery: [],
   });
+  const [galleryInput, setGalleryInput] = useState("");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -101,6 +111,7 @@ export default function ProductsPage() {
         provider: formData.provider,
         features: formData.features ? formData.features.split(",").map(f => f.trim()) : [],
         requirements: formData.requirements ? formData.requirements.split(",").map(r => r.trim()) : [],
+        gallery: formData.gallery,
       });
 
       if (!result.success) {
@@ -144,6 +155,7 @@ export default function ProductsPage() {
         provider: formData.provider,
         features: formData.features ? formData.features.split(",").map(f => f.trim()) : [],
         requirements: formData.requirements ? formData.requirements.split(",").map(r => r.trim()) : [],
+        gallery: formData.gallery,
       });
 
       if (!result.success) {
@@ -172,26 +184,20 @@ export default function ProductsPage() {
     }
   }
 
-  async function handleDeleteProduct() {
+  async function handleDeleteProduct(force: boolean) {
     if (!selectedProduct) return;
-    
     try {
       setProcessing("delete");
-      
-      const result = await deleteProduct(selectedProduct.id);
-
-      if (!result.success) {
-        throw new Error(result.error);
-      }
-
+      const result = force ? await forceDeleteProduct(selectedProduct.id) : await deleteProduct(selectedProduct.id);
+      if (!result.success) throw new Error(result.error);
       toast({
         title: "Success",
         description: "Product deleted successfully",
         className: "border-red-500/20 bg-red-500/10",
       });
-      
       setShowDeleteModal(false);
       setSelectedProduct(null);
+      setDeleteBlockers(null);
       await loadProducts();
     } catch (error: any) {
       console.error("Failed to delete product:", error);
@@ -206,7 +212,7 @@ export default function ProductsPage() {
   }
 
 
-  function openEditModal(product: Product) {
+  async function openEditModal(product: Product) {
     setSelectedProduct(product);
     setFormData({
       name: product.name,
@@ -218,13 +224,37 @@ export default function ProductsPage() {
       provider: product.provider,
       features: product.features?.join(", ") || "",
       requirements: product.requirements?.join(", ") || "",
+      gallery: Array.isArray(product.gallery) ? product.gallery : [],
     });
+    setGalleryInput("");
+    setVariants([]);
+    setEditingVariant(null);
+    setVariantForm({ duration: "", price: "", stock: "0" });
     setShowEditModal(true);
+    setVariantsLoading(true);
+    try {
+      const res = await getVariantsForProduct(product.id);
+      if (res.success && res.data) setVariants(res.data);
+    } catch {
+      /* ignore */
+    } finally {
+      setVariantsLoading(false);
+    }
   }
 
-  function openDeleteModal(product: Product) {
+  async function openDeleteModal(product: Product) {
     setSelectedProduct(product);
     setShowDeleteModal(true);
+    setDeleteBlockers(null);
+    setDeleteBlockersLoading(true);
+    try {
+      const res = await getOrdersAndLicensesForProduct(product.id);
+      if (res.success && res.data) setDeleteBlockers(res.data);
+    } catch {
+      /* ignore */
+    } finally {
+      setDeleteBlockersLoading(false);
+    }
   }
 
   function resetForm() {
@@ -238,7 +268,87 @@ export default function ProductsPage() {
       provider: "Magma",
       features: "",
       requirements: "",
+      gallery: [],
     });
+    setGalleryInput("");
+    setVariants([]);
+    setVariantForm({ duration: "", price: "", stock: "0" });
+    setEditingVariant(null);
+  }
+
+  function addGalleryImage() {
+    const url = galleryInput.trim();
+    if (!url) return;
+    setFormData({ ...formData, gallery: [...formData.gallery, url] });
+    setGalleryInput("");
+  }
+
+  function removeGalleryImage(index: number) {
+    setFormData({
+      ...formData,
+      gallery: formData.gallery.filter((_, i) => i !== index),
+    });
+  }
+
+  async function handleAddVariant() {
+    if (!selectedProduct) return;
+    const duration = variantForm.duration.trim() || "1 Day";
+    const price = parseFloat(variantForm.price);
+    if (isNaN(price) || price < 0) {
+      toast({ title: "Invalid price", variant: "destructive" });
+      return;
+    }
+    try {
+      setProcessing("variant-add");
+      const res = await createVariant({
+        product_id: selectedProduct.id,
+        duration,
+        price,
+        stock: parseInt(variantForm.stock, 10) || 0,
+      });
+      if (!res.success) throw new Error(res.error);
+      toast({ title: "Variant added", className: "border-green-500/20 bg-green-500/10" });
+      setVariantForm({ duration: "", price: "", stock: "0" });
+      const next = await getVariantsForProduct(selectedProduct.id);
+      if (next.success && next.data) setVariants(next.data);
+    } catch (e: any) {
+      toast({ title: "Error", description: e?.message ?? "Failed to add variant", variant: "destructive" });
+    } finally {
+      setProcessing(null);
+    }
+  }
+
+  async function handleUpdateVariant(v: ProductVariantRow, updates: { duration?: string; price?: number; stock?: number }) {
+    try {
+      setProcessing("variant-update");
+      const res = await updateVariant(v.id, updates);
+      if (!res.success) throw new Error(res.error);
+      toast({ title: "Variant updated", className: "border-green-500/20 bg-green-500/10" });
+      setEditingVariant(null);
+      if (selectedProduct) {
+        const next = await getVariantsForProduct(selectedProduct.id);
+        if (next.success && next.data) setVariants(next.data);
+      }
+    } catch (e: any) {
+      toast({ title: "Error", description: e?.message ?? "Failed to update variant", variant: "destructive" });
+    } finally {
+      setProcessing(null);
+    }
+  }
+
+  async function handleDeleteVariant(v: ProductVariantRow) {
+    try {
+      setProcessing("variant-delete");
+      const res = await deleteVariant(v.id);
+      if (!res.success) throw new Error(res.error);
+      toast({ title: "Variant removed", className: "border-red-500/20 bg-red-500/10" });
+      setVariants((prev) => prev.filter((x) => x.id !== v.id));
+      setEditingVariant(null);
+    } catch (e: any) {
+      toast({ title: "Error", description: e?.message ?? "Failed to delete variant", variant: "destructive" });
+    } finally {
+      setProcessing(null);
+    }
   }
 
   const columns = [
@@ -560,6 +670,55 @@ export default function ProductsPage() {
               </div>
             </div>
 
+            {/* Gallery Images - In-Game & Menu Images */}
+            <div className="space-y-4 pt-4 border-t border-[#1a1a1a]">
+              <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider flex items-center gap-2">
+                <ImageIcon className="w-4 h-4" />
+                Gallery Images (In-Game & Menu)
+              </h3>
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <Input
+                    value={galleryInput}
+                    onChange={(e) => setGalleryInput(e.target.value)}
+                    placeholder="/images/in-game-1.jpg"
+                    className="bg-[#1a1a1a] border-[#262626] text-white placeholder:text-white/30 focus:border-[#dc2626]/50 transition-colors"
+                    onKeyPress={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addGalleryImage();
+                      }
+                    }}
+                  />
+                  <Button
+                    onClick={addGalleryImage}
+                    size="sm"
+                    className="bg-[#dc2626] hover:bg-[#ef4444] text-white"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+                {formData.gallery.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {formData.gallery.map((url, idx) => (
+                      <div key={idx} className="relative group">
+                        <div className="relative aspect-video bg-[#0a0a0a] border border-[#262626] rounded-lg overflow-hidden">
+                          <img src={url} alt={`Gallery ${idx + 1}`} className="w-full h-full object-cover" />
+                          <button
+                            onClick={() => removeGalleryImage(idx)}
+                            className="absolute top-1 right-1 p-1 bg-red-500/80 hover:bg-red-500 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-white/40">Add in-game screenshots and menu images. These will appear as thumbnails below the main product image.</p>
+              </div>
+            </div>
+
             {/* Details */}
             <div className="space-y-4 pt-4 border-t border-[#1a1a1a]">
               <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider flex items-center gap-2">
@@ -734,6 +893,160 @@ export default function ProductsPage() {
               </div>
             </div>
 
+            {/* Gallery Images - In-Game & Menu Images */}
+            <div className="space-y-4 pt-4 border-t border-[#1a1a1a]">
+              <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider flex items-center gap-2">
+                <ImageIcon className="w-4 h-4" />
+                Gallery Images (In-Game & Menu)
+              </h3>
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <Input
+                    value={galleryInput}
+                    onChange={(e) => setGalleryInput(e.target.value)}
+                    placeholder="/images/in-game-1.jpg"
+                    className="bg-[#1a1a1a] border-[#262626] text-white placeholder:text-white/30 focus:border-blue-500/50 transition-colors"
+                    onKeyPress={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addGalleryImage();
+                      }
+                    }}
+                  />
+                  <Button
+                    onClick={addGalleryImage}
+                    size="sm"
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+                {formData.gallery.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {formData.gallery.map((url, idx) => (
+                      <div key={idx} className="relative group">
+                        <div className="relative aspect-video bg-[#0a0a0a] border border-[#262626] rounded-lg overflow-hidden">
+                          <img src={url} alt={`Gallery ${idx + 1}`} className="w-full h-full object-cover" />
+                          <button
+                            onClick={() => removeGalleryImage(idx)}
+                            className="absolute top-1 right-1 p-1 bg-red-500/80 hover:bg-red-500 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-white/40">Add in-game screenshots and menu images. These will appear as thumbnails below the main product image.</p>
+              </div>
+            </div>
+
+            {/* Variants & pricing */}
+            {selectedProduct && (
+              <div className="space-y-4 pt-4 border-t border-[#1a1a1a]">
+                <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider flex items-center gap-2">
+                  <DollarSign className="w-4 h-4" />
+                  Variants & pricing
+                </h3>
+                {variantsLoading ? (
+                  <div className="flex items-center justify-center py-6">
+                    <RefreshCw className="w-5 h-5 animate-spin text-white/40" />
+                  </div>
+                ) : (
+                  <>
+                    <div className="rounded-lg border border-[#262626] divide-y divide-[#262626] max-h-48 overflow-y-auto">
+                      {variants.length === 0 ? (
+                        <div className="py-6 text-center text-white/40 text-sm">No variants. Add duration, price, and stock below.</div>
+                      ) : (
+                        variants.map((v) =>
+                          editingVariant?.id === v.id ? (
+                            <div key={v.id} className="p-3 flex flex-wrap items-center gap-2">
+                              <Input
+                                placeholder="Duration"
+                                defaultValue={v.duration}
+                                id={`edit-duration-${v.id}`}
+                                className="w-28 bg-[#0a0a0a] border-[#262626] text-white text-sm"
+                              />
+                              <Input
+                                type="number"
+                                step="0.01"
+                                placeholder="Price"
+                                defaultValue={v.price}
+                                id={`edit-price-${v.id}`}
+                                className="w-24 bg-[#0a0a0a] border-[#262626] text-white text-sm"
+                              />
+                              <Input
+                                type="number"
+                                placeholder="Stock"
+                                defaultValue={v.stock}
+                                id={`edit-stock-${v.id}`}
+                                className="w-20 bg-[#0a0a0a] border-[#262626] text-white text-sm"
+                              />
+                              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => {
+                                const dur = (document.getElementById(`edit-duration-${v.id}`) as HTMLInputElement)?.value?.trim() || v.duration;
+                                const pr = parseFloat((document.getElementById(`edit-price-${v.id}`) as HTMLInputElement)?.value ?? "0");
+                                const st = parseInt((document.getElementById(`edit-stock-${v.id}`) as HTMLInputElement)?.value ?? "0", 10);
+                                handleUpdateVariant(v, { duration: dur, price: isNaN(pr) ? v.price : pr, stock: isNaN(st) ? v.stock : st });
+                              }}>
+                                <Check className="w-3 h-3 mr-1" /> Save
+                              </Button>
+                              <Button size="sm" variant="ghost" className="text-white/60" onClick={() => setEditingVariant(null)}>
+                                <X className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div key={v.id} className="px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex items-center gap-3">
+                                <span className="font-medium text-white">{v.duration}</span>
+                                <span className="text-emerald-400">${v.price.toFixed(2)}</span>
+                                <span className="text-white/50 text-sm">stock {v.stock}</span>
+                              </div>
+                              <div className="flex gap-1">
+                                <Button size="sm" variant="ghost" className="text-blue-400 hover:bg-blue-500/10" onClick={() => setEditingVariant(v)}>
+                                  <Edit className="w-3 h-3" />
+                                </Button>
+                                <Button size="sm" variant="ghost" className="text-red-400 hover:bg-red-500/10" onClick={() => handleDeleteVariant(v)} disabled={processing === "variant-delete"}>
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          )
+                        )
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-end gap-2">
+                      <Input
+                        placeholder="e.g. 1 Day, 7 Days"
+                        value={variantForm.duration}
+                        onChange={(e) => setVariantForm({ ...variantForm, duration: e.target.value })}
+                        className="w-32 bg-[#1a1a1a] border-[#262626] text-white"
+                      />
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="Price"
+                        value={variantForm.price}
+                        onChange={(e) => setVariantForm({ ...variantForm, price: e.target.value })}
+                        className="w-24 bg-[#1a1a1a] border-[#262626] text-white"
+                      />
+                      <Input
+                        type="number"
+                        placeholder="Stock"
+                        value={variantForm.stock}
+                        onChange={(e) => setVariantForm({ ...variantForm, stock: e.target.value })}
+                        className="w-20 bg-[#1a1a1a] border-[#262626] text-white"
+                      />
+                      <Button size="sm" onClick={handleAddVariant} disabled={processing === "variant-add"} className="bg-blue-600 hover:bg-blue-700 text-white">
+                        {processing === "variant-add" ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4 mr-1" />}
+                        Add variant
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
             {/* Details */}
             <div className="space-y-4 pt-4 border-t border-[#1a1a1a]">
               <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider flex items-center gap-2">
@@ -806,8 +1119,8 @@ export default function ProductsPage() {
       </Dialog>
 
       {/* Delete Confirmation Modal */}
-      <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
-        <DialogContent className="bg-[#0a0a0a] border-[#1a1a1a] text-white">
+      <Dialog open={showDeleteModal} onOpenChange={(open) => { setShowDeleteModal(open); if (!open) { setSelectedProduct(null); setDeleteBlockers(null); } }}>
+        <DialogContent className="bg-[#0a0a0a] border-[#1a1a1a] text-white max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center">
@@ -816,32 +1129,67 @@ export default function ProductsPage() {
               Delete Product
             </DialogTitle>
             <DialogDescription className="text-white/50">
-              This action cannot be undone
+              {selectedProduct?.name} • This cannot be undone
             </DialogDescription>
           </DialogHeader>
           
-          <div className="py-6">
-            <div className="bg-red-500/5 border border-red-500/20 rounded-lg p-4">
+          <div className="py-4 space-y-4">
+            <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-4">
               <p className="text-white/70">
-                Are you sure you want to delete{" "}
-                <span className="font-semibold text-white">{selectedProduct?.name}</span>?
-              </p>
-              <p className="text-white/50 text-sm mt-2">
-                All associated data will be permanently removed from the database.
+                Delete <span className="font-semibold text-white">{selectedProduct?.name}</span>? Product will be removed. Linked orders and licenses will be unlinked (not deleted).
               </p>
             </div>
+            {deleteBlockersLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <RefreshCw className="w-6 h-6 animate-spin text-white/40" />
+              </div>
+            ) : deleteBlockers && (deleteBlockers.orders.length > 0 || deleteBlockers.licenses.length > 0) ? (
+              <div className="space-y-4">
+                {deleteBlockers.orders.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-white/70 uppercase tracking-wider mb-2">Orders ({deleteBlockers.orders.length})</h4>
+                    <div className="rounded-lg border border-[#262626] divide-y divide-[#262626] max-h-40 overflow-y-auto">
+                      {deleteBlockers.orders.map((o) => (
+                        <div key={o.id} className="px-4 py-2.5 flex flex-wrap items-center gap-2 text-sm">
+                          <span className="font-mono text-white/80">{o.order_number}</span>
+                          <span className="text-white/60">{o.customer_email}</span>
+                          <span className="text-white">{o.product_name}</span>
+                          <span className="text-white/50">{o.duration}</span>
+                          <span className="text-emerald-400 font-medium">${o.amount.toFixed(2)}</span>
+                          <span className="text-white/40">{new Date(o.created_at).toLocaleDateString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {deleteBlockers.licenses.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-white/70 uppercase tracking-wider mb-2">Licenses ({deleteBlockers.licenses.length})</h4>
+                    <div className="rounded-lg border border-[#262626] divide-y divide-[#262626] max-h-40 overflow-y-auto">
+                      {deleteBlockers.licenses.map((l) => (
+                        <div key={l.id} className="px-4 py-2.5 flex flex-wrap items-center gap-2 text-sm">
+                          <code className="font-mono text-white/80">{l.license_key}</code>
+                          <span className="text-white/60">{l.customer_email}</span>
+                          <span className="text-white/40">{new Date(l.created_at).toLocaleDateString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : null}
           </div>
           
           <DialogFooter className="gap-2">
             <Button
-              onClick={() => { setShowDeleteModal(false); setSelectedProduct(null); }}
+              onClick={() => { setShowDeleteModal(false); setSelectedProduct(null); setDeleteBlockers(null); }}
               variant="outline"
               className="bg-[#1a1a1a] border-[#262626] text-white hover:bg-[#262626] transition-colors"
             >
               Cancel
             </Button>
             <Button
-              onClick={handleDeleteProduct}
+              onClick={() => handleDeleteProduct(true)}
               disabled={processing === "delete"}
               className="bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-600 text-white shadow-lg shadow-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
@@ -853,7 +1201,7 @@ export default function ProductsPage() {
               ) : (
                 <>
                   <Trash2 className="w-4 h-4 mr-2" />
-                  Delete Product
+                  Force delete
                 </>
               )}
             </Button>

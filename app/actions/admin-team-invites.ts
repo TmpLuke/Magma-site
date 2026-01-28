@@ -145,13 +145,22 @@ export async function inviteTeamMember(data: {
       }),
     });
 
-    if (!emailResult.success) {
+    const isResendTestModeError =
+      !emailResult.success &&
+      /only send testing emails|your own email|verify a domain|resend\.com\/domains/i.test(emailResult.error ?? "");
+
+    if (!emailResult.success && !isResendTestModeError) {
       await supabase.from("team_members").delete().eq("id", teamMember.id);
       return { success: false, error: `Invite created but email failed: ${emailResult.error}` };
     }
 
     revalidatePath("/mgmt-x9k2m7/team");
-    return { success: true, teamMember };
+    return {
+      success: true,
+      teamMember,
+      inviteLink: isResendTestModeError ? inviteLink : undefined,
+      emailSent: emailResult.success,
+    };
   } catch (e: any) {
     if (e?.message === "Unauthorized" || /Forbidden|insufficient permissions/i.test(e?.message ?? ""))
       return { success: false, error: "You don't have permission to do this." };

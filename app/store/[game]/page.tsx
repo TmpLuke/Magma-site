@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Shield, ShoppingCart, Clock } from "lucide-react";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 // Map of game slugs to display names and gradient colors
 const gameConfig: Record<string, { name: string; gradient: string; accentColor: string }> = {
@@ -53,10 +54,11 @@ export default async function GameCheatSelectionPage({
   // Get all products
   const allProducts = await getProducts();
   
-  // Find products that match this game
+  const gameSlugNorm = gameSlug.toLowerCase().trim();
   const gameProducts = allProducts.filter((p) => {
-    const productGameSlug = gameToSlug(p.game);
-    return productGameSlug === gameSlug;
+    const g = (p.game || "").trim();
+    const productSlug = gameToSlug(g);
+    return productSlug === gameSlugNorm || g.toLowerCase() === gameSlugNorm.replace(/-/g, " ");
   });
 
   // If no products found, this might be a direct product slug - redirect to not found
@@ -64,8 +66,7 @@ export default async function GameCheatSelectionPage({
     notFound();
   }
 
-  // Get the game config or use default
-  const config = gameConfig[gameSlug] || { 
+  const config = gameConfig[gameSlugNorm] || gameConfig[gameSlug] || { 
     name: gameProducts[0]?.game || "Game", 
     gradient: "from-red-600/40 via-red-500/30 to-red-800/40",
     accentColor: "#dc2626"
@@ -109,10 +110,14 @@ export default async function GameCheatSelectionPage({
 
       {/* Cheats Grid */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
+        <p className="text-white/50 text-sm mb-6 text-center">
+          <span className="text-white font-semibold">{gameProducts.length}</span> {gameProducts.length === 1 ? "product" : "products"} in this category
+        </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {gameProducts.map((product, index) => {
             const cardGradient = cardGradients[index % cardGradients.length];
-            const lowestPrice = Math.min(...product.pricing.map(p => p.price));
+            const prices = product.pricing?.length ? product.pricing.map((p) => p.price) : [0];
+            const lowestPrice = Math.min(...prices);
             
             return (
               <div
@@ -193,7 +198,7 @@ export default async function GameCheatSelectionPage({
         <div className="mt-12 text-center">
           <Link
             href="/store"
-            className="inline-flex items-center gap-2 text-white/60 hover:text-white transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#1a1a1a] border border-[#262626] text-white/80 hover:text-white hover:border-[#dc2626]/50 hover:bg-[#1f1f1f] transition-all"
           >
             <span>&larr;</span>
             Back to All Games

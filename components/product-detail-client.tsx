@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Minus,
   Plus,
@@ -15,6 +15,16 @@ import {
   Copy,
   Mail,
   X,
+  Check,
+  TrendingUp,
+  Users,
+  Sparkles,
+  Lock,
+  Clock,
+  Package,
+  Award,
+  ChevronRight,
+  Eye,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -22,6 +32,7 @@ import { processPurchase, validateCoupon } from "@/lib/purchase-actions";
 import { useCart } from "@/lib/cart-context";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
+import { AddToCartModal } from "@/components/add-to-cart-modal";
 
 interface Product {
   id: string;
@@ -35,6 +46,11 @@ interface Product {
   features: { aimbot: string[]; esp: string[]; misc: string[] };
   requirements: { cpu: string; windows: string; cheatType: string; controller: boolean };
   gallery?: string[];
+  featureCards?: Array<{
+    icon: string;
+    title: string;
+    description: string;
+  }>;
 }
 
 interface Review {
@@ -121,10 +137,10 @@ export function ProductDetailClient({ product, reviews, gameSlug }: { product: P
   const { toast } = useToast();
   const [quantity, setQuantity] = useState(1);
   const [selectedPriceIndex, setSelectedPriceIndex] = useState(0);
-  const [cpuConfirmed, setCpuConfirmed] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState(0);
+  const [activeTab, setActiveTab] = useState<"features" | "reviews" | "faq">("features");
   
   // Checkout modal state
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
@@ -140,16 +156,34 @@ export function ProductDetailClient({ product, reviews, gameSlug }: { product: P
     orderNumber: string;
     licenseKey: string;
   } | null>(null);
+  
+  // Add to cart modal state
+  const [showAddToCartModal, setShowAddToCartModal] = useState(false);
+
+  // Live viewing counter animation
+  const [viewingCount, setViewingCount] = useState(42);
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setViewingCount(prev => {
+        const change = Math.random() > 0.5 ? 1 : -1;
+        return Math.max(35, Math.min(58, prev + change));
+      });
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Auto-rotate gallery
+  useEffect(() => {
+    if (product.gallery && product.gallery.length > 1) {
+      const interval = setInterval(() => {
+        setSelectedImage(prev => (prev + 1) % product.gallery!.length);
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [product.gallery]);
 
   const handleAddToCart = () => {
-    if (!cpuConfirmed) {
-      toast({
-        title: "CPU Confirmation Required",
-        description: "Please confirm you have an Intel CPU before adding to cart.",
-        variant: "destructive",
-      });
-      return;
-    }
     const selectedTier = product.pricing[selectedPriceIndex];
     addToCart({
       productId: product.id,
@@ -161,20 +195,10 @@ export function ProductDetailClient({ product, reviews, gameSlug }: { product: P
       price: selectedTier.price,
       quantity: quantity,
     });
-    toast({
-      title: "Added to Cart",
-      description: `${product.name} (${selectedTier.duration}) x${quantity} added to cart.`,
-      className: "border-green-500/20 bg-green-500/10",
-    });
+    setShowAddToCartModal(true);
   };
 
   const handleBuyNow = () => {
-    if (!cpuConfirmed) return;
-    setShowCheckoutModal(true);
-  };
-
-  const handleOpenCheckout = () => {
-    if (!cpuConfirmed) return;
     setShowCheckoutModal(true);
   };
 
@@ -211,7 +235,6 @@ export function ProductDetailClient({ product, reviews, gameSlug }: { product: P
       const selectedTier = product.pricing[selectedPriceIndex];
       let totalAmount = selectedTier.price * quantity;
       
-      // Apply coupon discount
       if (couponDiscount > 0) {
         totalAmount = totalAmount * (1 - couponDiscount / 100);
       }
@@ -227,10 +250,8 @@ export function ProductDetailClient({ product, reviews, gameSlug }: { product: P
       });
 
       if (result.success && result.checkoutUrl) {
-        // Redirect to Money Motion checkout
         window.location.href = result.checkoutUrl;
       } else if (result.success && result.licenseKey) {
-        // Fallback for direct purchases (if any)
         setOrderDetails({
           orderNumber: result.orderNumber || "",
           licenseKey: result.licenseKey,
@@ -249,6 +270,10 @@ export function ProductDetailClient({ product, reviews, gameSlug }: { product: P
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
+    toast({
+      title: "Copied!",
+      description: "Copied to clipboard",
+    });
   };
 
   const formatDate = (dateStr: string) => {
@@ -257,537 +282,708 @@ export function ProductDetailClient({ product, reviews, gameSlug }: { product: P
   };
 
   return (
-    <div className="pt-24 pb-16">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Breadcrumb */}
-        <Link
-          href={gameSlug ? `/store/${gameSlug}` : "/store"}
-          className="inline-flex items-center gap-2 text-white/60 hover:text-[#dc2626] mb-8 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          {gameSlug ? `Back to ${product.game} Cheats` : "Back to Store"}
-        </Link>
+    <div className="pt-24 pb-16 relative overflow-hidden">
+      {/* Animated Background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#dc2626]/5 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[#dc2626]/5 rounded-full blur-3xl animate-pulse delay-1000" />
+      </div>
 
-        {/* Product Hero Banner */}
-        <div className="relative rounded-xl overflow-hidden mb-8">
-          <div className="absolute inset-0 bg-gradient-to-r from-[#dc2626]/30 via-[#dc2626]/20 to-[#dc2626]/30" />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        {/* Enhanced Breadcrumb */}
+        <div className="flex items-center justify-between mb-8">
+          <Link
+            href={gameSlug ? `/store/${gameSlug}` : "/store"}
+            className="group inline-flex items-center gap-2 px-4 py-2 bg-[#111111] border border-[#1a1a1a] rounded-lg text-white/60 hover:text-[#dc2626] hover:border-[#dc2626]/30 transition-all"
+          >
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            {gameSlug ? `Back to ${product.game} Cheats` : "Back to Store"}
+          </Link>
+          
+          {/* Live Viewing Indicator */}
+          <div className="flex items-center gap-2 px-4 py-2 bg-[#111111] border border-[#1a1a1a] rounded-lg">
+            <div className="relative">
+              <Eye className="w-4 h-4 text-[#dc2626]" />
+              <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#dc2626] rounded-full animate-ping" />
+            </div>
+            <span className="text-white/80 text-sm font-medium">{viewingCount} viewing now</span>
+          </div>
+        </div>
+
+        {/* Enhanced Product Hero Banner */}
+        <div className="relative rounded-2xl overflow-hidden mb-12 group">
+          <div className="absolute inset-0 bg-gradient-to-r from-[#dc2626]/40 via-[#dc2626]/20 to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#0a0a0a]" />
           <div 
-            className="absolute inset-0 opacity-20 bg-cover bg-center"
+            className="absolute inset-0 opacity-30 bg-cover bg-center transform group-hover:scale-105 transition-transform duration-700"
             style={{ backgroundImage: `url(${product.image})` }}
           />
-          <div className="relative py-12 px-6 text-center">
+          <div className="relative py-16 px-8 text-center">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#dc2626]/20 border border-[#dc2626]/30 rounded-full mb-6 backdrop-blur-sm">
+              <Sparkles className="w-4 h-4 text-[#dc2626] animate-pulse" />
+              <span className="text-[#dc2626] text-sm font-semibold">Premium Quality Cheat</span>
+            </div>
             <h1
-              className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-2"
+              className="text-5xl md:text-7xl font-bold text-white mb-3 tracking-tight"
               style={{ fontFamily: "Georgia, serif", fontStyle: "italic" }}
             >
               {product.name}
             </h1>
-            <p className="text-[#dc2626] text-xl md:text-2xl font-medium italic">{product.game} Cheats</p>
+            <p className="text-[#dc2626] text-2xl md:text-3xl font-medium italic flex items-center justify-center gap-3">
+              {product.game} Cheats
+              <Award className="w-6 h-6" />
+            </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-          {/* Left: Image Gallery */}
-          <div className="space-y-4">
-            {/* Main Image - Full Fit */}
-            <div className="relative w-full bg-[#111111] border border-[#1a1a1a] rounded-xl overflow-hidden" style={{ aspectRatio: "16/9" }}>
-              <Image
-                src={product.gallery && product.gallery.length > 0 && selectedImage < product.gallery.length
-                  ? product.gallery[selectedImage]
-                  : product.image || "/placeholder.svg"}
-                alt={product.name}
-                fill
-                className="object-cover"
-                priority
-                sizes="(max-width: 768px) 100vw, 50vw"
-              />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16">
+          {/* Left: Enhanced Image Gallery */}
+          <div className="space-y-6">
+            {/* Main Image with Zoom Effect */}
+            <div className="relative group">
+              <div className="absolute -inset-1 bg-gradient-to-r from-[#dc2626]/50 to-transparent rounded-2xl blur opacity-0 group-hover:opacity-100 transition duration-500" />
+              <div className="relative w-full bg-[#111111] border-2 border-[#1a1a1a] rounded-2xl overflow-hidden" style={{ aspectRatio: "16/9" }}>
+                <Image
+                  src={product.gallery && product.gallery.length > 0 && selectedImage < product.gallery.length
+                    ? product.gallery[selectedImage]
+                    : product.image || "/placeholder.svg"}
+                  alt={product.name}
+                  fill
+                  className="object-cover transform group-hover:scale-110 transition-transform duration-700"
+                  priority
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                />
+                <div className="absolute bottom-4 right-4 bg-black/80 backdrop-blur-sm px-3 py-1.5 rounded-lg text-white text-sm">
+                  {selectedImage + 1} / {product.gallery?.length || 1}
+                </div>
+              </div>
             </div>
             
-            {/* Thumbnail Gallery - Only show if gallery images exist */}
+            {/* Enhanced Thumbnail Gallery */}
             {product.gallery && product.gallery.length > 0 && (
-              <div className="flex gap-3 flex-wrap">
+              <div className="flex gap-4 flex-wrap">
                 {product.gallery.map((img, idx) => (
                   <button
                     key={idx}
                     onClick={() => setSelectedImage(idx)}
-                    className={`relative w-24 h-16 rounded-lg overflow-hidden border-2 transition-all flex-shrink-0 ${
+                    className={`relative group/thumb w-28 h-20 rounded-xl overflow-hidden border-2 transition-all flex-shrink-0 ${
                       selectedImage === idx
-                        ? "border-[#dc2626] ring-2 ring-[#dc2626]/50"
-                        : "border-[#1a1a1a] hover:border-[#262626]"
+                        ? "border-[#dc2626] ring-2 ring-[#dc2626]/50 scale-105"
+                        : "border-[#1a1a1a] hover:border-[#dc2626]/50 hover:scale-105"
                     }`}
                   >
                     <Image
                       src={img}
                       alt={`${product.name} ${idx + 1}`}
                       fill
-                      className="object-cover"
+                      className="object-cover transform group-hover/thumb:scale-110 transition-transform"
                     />
+                    {selectedImage === idx && (
+                      <div className="absolute inset-0 bg-[#dc2626]/20 flex items-center justify-center">
+                        <Check className="w-6 h-6 text-white" />
+                      </div>
+                    )}
                   </button>
                 ))}
               </div>
             )}
+
+            {/* Trust Badges - Dynamic Feature Cards */}
+            <div className="grid grid-cols-3 gap-4">
+              {(product.featureCards || [
+                { icon: "Shield", title: "Secure", description: "SSL Protected" },
+                { icon: "Zap", title: "Instant", description: "Auto Delivery" },
+                { icon: "Users", title: "Support", description: "24/7 Available" }
+              ]).map((card, idx) => {
+                const IconComponent = card.icon === "Shield" ? Shield : card.icon === "Zap" ? Zap : Users;
+                return (
+                  <div key={idx} className="bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-[#1a1a1a] rounded-xl p-4 text-center hover:border-[#dc2626]/30 transition-all group">
+                    <IconComponent className="w-8 h-8 text-[#dc2626] mx-auto mb-2 group-hover:scale-110 transition-transform" />
+                    <p className="text-white text-sm font-semibold mb-1">{card.title}</p>
+                    <p className="text-white/50 text-xs">{card.description}</p>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
-          {/* Right: Product Details */}
+          {/* Right: Enhanced Product Details */}
           <div className="space-y-6">
-            {/* Product Name */}
-            <h1 className="text-4xl md:text-5xl font-bold text-white">{product.name}</h1>
-            
-            {/* Status Badges */}
-            <div className="flex items-center gap-3">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1a1a1a] text-white text-sm border border-[#262626]">
-                <Zap className="w-4 h-4 text-[#dc2626]" />
-                Instant Delivery
-              </span>
-              <span
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm ${
-                  product.status === "active"
-                    ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                    : "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
-                }`}
-              >
-                <Shield className="w-4 h-4" />
-                {product.status === "active" ? "Undetected (Working)" : "Maintenance"}
-              </span>
-            </div>
-
-            {/* Price Display */}
-            <div className="flex items-center gap-4">
-              <p className="text-4xl font-bold text-white">
-                ${product.pricing[selectedPriceIndex].price.toFixed(2)}
-              </p>
-              {/* Quantity Selector */}
-              <div className="flex items-center gap-2 bg-[#1a1a1a] rounded-lg p-1 border border-[#262626]">
-                <button
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="w-8 h-8 rounded bg-[#dc2626] hover:bg-[#ef4444] flex items-center justify-center text-white transition-colors"
+            {/* Product Name with Animation */}
+            <div>
+              <h1 className="text-5xl md:text-6xl font-bold text-white mb-4 animate-fade-in">{product.name}</h1>
+              
+              {/* Enhanced Status Badges */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="group inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#1a1a1a] to-[#111111] text-white text-sm border border-[#262626] hover:border-[#dc2626]/30 transition-all">
+                  <Zap className="w-4 h-4 text-[#dc2626] group-hover:animate-pulse" />
+                  Instant Delivery
+                </span>
+                <span
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold relative overflow-hidden group ${
+                    product.status === "active"
+                      ? "bg-green-500/10 text-green-400 border-2 border-green-500/30"
+                      : "bg-yellow-500/10 text-yellow-400 border-2 border-yellow-500/30"
+                  }`}
                 >
-                  <Minus className="w-4 h-4" />
-                </button>
-                <span className="w-8 text-center text-white font-bold">{quantity}</span>
-                <button
-                  onClick={() => setQuantity(quantity + 1)}
-                  className="w-8 h-8 rounded bg-[#dc2626] hover:bg-[#ef4444] flex items-center justify-center text-white transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
+                  <Shield className="w-4 h-4 group-hover:rotate-12 transition-transform" />
+                  {product.status === "active" ? "Undetected (Working)" : "Maintenance"}
+                  <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+                </span>
+                <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#dc2626]/10 text-[#dc2626] text-sm border border-[#dc2626]/30 font-semibold">
+                  <TrendingUp className="w-4 h-4" />
+                  Trending
+                </span>
               </div>
             </div>
 
-            {/* Variant Cards - Stacked Vertically */}
+            {/* Enhanced Price Display */}
+            <div className="bg-gradient-to-br from-[#111111] to-[#0a0a0a] border-2 border-[#dc2626]/30 rounded-2xl p-6 relative overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-r from-[#dc2626]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="relative flex items-end justify-between">
+                <div>
+                  <p className="text-white/60 text-sm mb-2 flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    {product.pricing[selectedPriceIndex].duration}
+                  </p>
+                  <p className="text-5xl font-bold text-white flex items-baseline gap-2">
+                    <span className="text-[#dc2626]">$</span>
+                    {product.pricing[selectedPriceIndex].price.toFixed(2)}
+                  </p>
+                  <p className="text-white/40 text-sm mt-1">per license</p>
+                </div>
+                
+                {/* Enhanced Quantity Selector */}
+                <div className="flex items-center gap-3 bg-[#0a0a0a] rounded-xl p-2 border border-[#1a1a1a]">
+                  <button
+                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#dc2626] to-[#ef4444] hover:from-[#ef4444] hover:to-[#dc2626] flex items-center justify-center text-white transition-all hover:scale-110 active:scale-95"
+                  >
+                    <Minus className="w-5 h-5" />
+                  </button>
+                  <span className="w-12 text-center text-white font-bold text-xl">{quantity}</span>
+                  <button
+                    onClick={() => setQuantity(quantity + 1)}
+                    className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#dc2626] to-[#ef4444] hover:from-[#ef4444] hover:to-[#dc2626] flex items-center justify-center text-white transition-all hover:scale-110 active:scale-95"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Enhanced Variant Cards */}
             <div className="space-y-3">
+              <p className="text-white/60 text-sm font-medium flex items-center gap-2">
+                <Package className="w-4 h-4" />
+                Select Duration
+              </p>
               {product.pricing.map((tier, index) => (
                 <button
                   key={index}
                   onClick={() => setSelectedPriceIndex(index)}
-                  className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
+                  className={`relative w-full p-5 rounded-xl border-2 transition-all text-left group overflow-hidden ${
                     selectedPriceIndex === index
-                      ? "bg-[#dc2626] border-[#dc2626] text-white shadow-lg shadow-[#dc2626]/30"
-                      : "bg-[#1a1a1a] border-[#262626] text-white hover:border-[#dc2626]/50 hover:bg-[#1f1f1f]"
+                      ? "bg-gradient-to-r from-[#dc2626] to-[#ef4444] border-[#dc2626] text-white shadow-2xl shadow-[#dc2626]/40 scale-105"
+                      : "bg-[#111111] border-[#262626] text-white hover:border-[#dc2626]/50 hover:bg-[#1a1a1a] hover:scale-102"
                   }`}
                 >
-                  <div className="flex items-center justify-between">
+                  {selectedPriceIndex === index && (
+                    <div className="absolute top-3 right-3">
+                      <CheckCircle className="w-6 h-6 text-white" />
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between pr-10">
                     <div>
-                      <p className="text-sm font-semibold uppercase mb-1">{tier.duration}</p>
-                      <p className="font-bold text-xl">${tier.price.toFixed(2)}</p>
+                      <p className="text-xs font-semibold uppercase mb-2 flex items-center gap-2">
+                        <Clock className="w-3 h-3" />
+                        {tier.duration}
+                      </p>
+                      <p className="font-bold text-2xl">${tier.price.toFixed(2)}</p>
+                      {selectedPriceIndex !== index && (
+                        <p className="text-xs text-white/50 mt-1">Save more with longer plans</p>
+                      )}
                     </div>
                     <div className="text-right">
-                      <p className="text-xs text-white/60 mb-1">STOCK</p>
-                      <p className="text-sm font-semibold">{tier.stock}</p>
+                      <p className="text-xs text-white/60 mb-1 flex items-center gap-1 justify-end">
+                        <Package className="w-3 h-3" />
+                        STOCK
+                      </p>
+                      <p className={`text-lg font-bold ${tier.stock < 10 ? 'text-yellow-400' : ''}`}>
+                        {tier.stock}
+                      </p>
+                      {tier.stock < 10 && (
+                        <p className="text-xs text-yellow-400 mt-1">Low Stock!</p>
+                      )}
                     </div>
                   </div>
                 </button>
               ))}
             </div>
 
-            {/* CPU Confirmation */}
-            <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg p-4 mb-6">
-              <p className="text-white/80 text-sm mb-3">
-                I confirm that my computer has an Intel CPU. If you have an AMD CPU, do NOT buy!{" "}
-                <span className="text-[#dc2626]">REQUIRED</span>
-              </p>
-              <div className="flex items-center gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={cpuConfirmed}
-                    onChange={(e) => setCpuConfirmed(e.target.checked)}
-                    className="w-4 h-4 rounded border-[#1a1a1a] bg-[#1a1a1a] text-[#dc2626] focus:ring-[#dc2626]"
-                  />
-                  <span className="text-white/70 text-sm">Yes</span>
-                </label>
-                <span className="text-white/50 text-sm">or</span>
-                <button
-                  onClick={() => setCpuConfirmed(true)}
-                  className="text-white/70 text-sm underline hover:text-white"
-                >
-                  All / None
-                </button>
-              </div>
-            </div>
-
             {/* Checkout Error */}
             {checkoutError && (
-              <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
-                {checkoutError}
+              <div className="p-4 bg-red-500/10 border-2 border-red-500/30 rounded-xl text-red-400 text-sm animate-shake flex items-start gap-3">
+                <X className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                <span>{checkoutError}</span>
               </div>
             )}
 
-            {/* Action Buttons */}
-            <div className="space-y-3">
+            {/* Enhanced Action Buttons */}
+            <div className="space-y-4">
               <button
                 onClick={handleAddToCart}
-                disabled={!cpuConfirmed}
-                className={`w-full py-4 rounded-lg font-semibold text-lg transition-all duration-300 flex items-center justify-center gap-2 ${
-                  cpuConfirmed
-                    ? "bg-white text-[#0a0a0a] hover:bg-white/90"
-                    : "bg-[#1a1a1a] text-white/50 cursor-not-allowed"
-                }`}
+                className="relative w-full py-5 rounded-xl font-bold text-lg transition-all duration-300 flex items-center justify-center gap-3 overflow-hidden group bg-white text-[#0a0a0a] hover:bg-white/90 hover:shadow-2xl hover:shadow-white/20 hover:-translate-y-1"
               >
-                <ShoppingCart className="w-5 h-5" />
+                <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/30 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+                <ShoppingCart className="w-6 h-6 group-hover:rotate-12 transition-transform" />
                 Add To Cart
               </button>
+              
               <button
                 onClick={handleBuyNow}
-                disabled={!cpuConfirmed}
-                className={`w-full py-4 rounded-lg font-semibold text-lg transition-all duration-300 flex items-center justify-center gap-2 ${
-                  cpuConfirmed
-                    ? "bg-[#dc2626] text-white hover:bg-[#ef4444] hover:shadow-lg hover:shadow-[#dc2626]/30"
-                    : "bg-[#1a1a1a] text-white/50 cursor-not-allowed"
-                }`}
+                className="relative w-full py-5 rounded-xl font-bold text-lg transition-all duration-300 flex items-center justify-center gap-3 overflow-hidden group bg-gradient-to-r from-[#dc2626] to-[#ef4444] text-white hover:from-[#ef4444] hover:to-[#dc2626] hover:shadow-2xl hover:shadow-[#dc2626]/40 hover:-translate-y-1"
               >
+                <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+                <Zap className="w-6 h-6 group-hover:scale-110 transition-transform" />
                 Buy Now - ${(product.pricing[selectedPriceIndex].price * quantity).toFixed(2)}
               </button>
             </div>
+
+            {/* Money Back Guarantee */}
+            <div className="flex items-center justify-center gap-2 text-white/60 text-sm">
+              <Shield className="w-4 h-4 text-green-400" />
+              <span>Secure checkout powered by Stripe</span>
+            </div>
           </div>
         </div>
 
-        {/* Checkout Modal */}
-        {showCheckoutModal && !purchaseComplete && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-[#111111] border border-[#1a1a1a] rounded-xl max-w-md w-full p-6 relative">
+        {/* Enhanced Tabs Section */}
+        <div className="mb-16">
+          {/* Tab Navigation */}
+          <div className="flex items-center gap-2 mb-8 bg-[#111111] border border-[#1a1a1a] rounded-xl p-2">
+            {[
+              { id: "features", label: "Features", icon: Sparkles },
+              { id: "reviews", label: "Reviews", icon: Star },
+              { id: "faq", label: "FAQ", icon: CheckCircle },
+            ].map((tab) => (
               <button
-                onClick={() => setShowCheckoutModal(false)}
-                className="absolute top-4 right-4 text-white/60 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-              
-              <h2 className="text-2xl font-bold text-white mb-2">Complete Purchase</h2>
-              <p className="text-white/60 mb-6">
-                {product.name} - {product.pricing[selectedPriceIndex].duration}
-              </p>
-              
-              {/* Email Input */}
-              <div className="mb-4">
-                <label className="block text-white/80 text-sm mb-2">Email Address</label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
-                  <input
-                    type="email"
-                    value={customerEmail}
-                    onChange={(e) => setCustomerEmail(e.target.value)}
-                    placeholder="your@email.com"
-                    className="w-full pl-11 pr-4 py-3 bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg text-white placeholder:text-white/40 focus:border-[#dc2626] focus:outline-none"
-                  />
-                </div>
-                <p className="text-white/50 text-xs mt-1">Your license key will be sent to this email</p>
-              </div>
-              
-              {/* Coupon Code */}
-              <div className="mb-6">
-                <label className="block text-white/80 text-sm mb-2">Coupon Code (Optional)</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={couponCode}
-                    onChange={(e) => {
-                      setCouponCode(e.target.value.toUpperCase());
-                      setCouponValid(null);
-                      setCouponDiscount(0);
-                    }}
-                    placeholder="SAVE10"
-                    className="flex-1 px-4 py-3 bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg text-white placeholder:text-white/40 focus:border-[#dc2626] focus:outline-none"
-                  />
-                  <button
-                    onClick={handleValidateCoupon}
-                    disabled={isValidatingCoupon || !couponCode.trim()}
-                    className="px-4 py-3 bg-[#1a1a1a] hover:bg-[#262626] text-white rounded-lg transition-colors disabled:opacity-50"
-                  >
-                    {isValidatingCoupon ? <Loader2 className="w-5 h-5 animate-spin" /> : "Apply"}
-                  </button>
-                </div>
-                {couponValid === true && (
-                  <p className="text-green-400 text-sm mt-1">Coupon applied! {couponDiscount}% off</p>
-                )}
-                {couponValid === false && (
-                  <p className="text-red-400 text-sm mt-1">Invalid or expired coupon</p>
-                )}
-              </div>
-              
-              {/* Order Summary */}
-              <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg p-4 mb-6">
-                <div className="flex justify-between mb-2">
-                  <span className="text-white/60">Subtotal</span>
-                  <span className="text-white">${(product.pricing[selectedPriceIndex].price * quantity).toFixed(2)}</span>
-                </div>
-                {couponDiscount > 0 && (
-                  <div className="flex justify-between mb-2 text-green-400">
-                    <span>Discount ({couponDiscount}%)</span>
-                    <span>-${((product.pricing[selectedPriceIndex].price * quantity * couponDiscount) / 100).toFixed(2)}</span>
-                  </div>
-                )}
-                <div className="border-t border-[#1a1a1a] pt-2 mt-2 flex justify-between">
-                  <span className="text-white font-semibold">Total</span>
-                  <span className="text-[#dc2626] font-bold text-xl">
-                    ${((product.pricing[selectedPriceIndex].price * quantity) * (1 - couponDiscount / 100)).toFixed(2)}
-                  </span>
-                </div>
-              </div>
-              
-              {checkoutError && (
-                <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
-                  {checkoutError}
-                </div>
-              )}
-              
-              <button
-                onClick={handleCheckout}
-                disabled={isProcessing || !customerEmail}
-                className={`w-full py-4 rounded-lg font-semibold text-lg transition-all duration-300 flex items-center justify-center gap-2 ${
-                  !isProcessing && customerEmail
-                    ? "bg-[#dc2626] text-white hover:bg-[#ef4444]"
-                    : "bg-[#1a1a1a] text-white/50 cursor-not-allowed"
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as typeof activeTab)}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-semibold transition-all ${
+                  activeTab === tab.id
+                    ? "bg-gradient-to-r from-[#dc2626] to-[#ef4444] text-white shadow-lg shadow-[#dc2626]/30"
+                    : "text-white/60 hover:text-white hover:bg-[#1a1a1a]"
                 }`}
               >
-                {isProcessing ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <ShoppingCart className="w-5 h-5" />
-                    Complete Purchase
-                  </>
-                )}
+                <tab.icon className="w-5 h-5" />
+                {tab.label}
               </button>
-            </div>
+            ))}
           </div>
-        )}
 
-        {/* Success Modal */}
-        {purchaseComplete && orderDetails && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-[#111111] border border-[#1a1a1a] rounded-xl max-w-md w-full p-6 text-center">
-              <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="w-8 h-8 text-green-500" />
+          {/* Tab Content */}
+          <div className="animate-fade-in">
+            {activeTab === "features" && (
+              <div className="space-y-8">
+                {/* Information Section */}
+                <div className="bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-[#1a1a1a] rounded-2xl p-8">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-lg bg-[#dc2626]/10 flex items-center justify-center">
+                      <Shield className="w-5 h-5 text-[#dc2626]" />
+                    </div>
+                    <h2 className="text-[#dc2626] font-bold text-2xl tracking-wider">SYSTEM REQUIREMENTS</h2>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {[
+                      { icon: Package, label: "CPU", value: product.requirements.cpu },
+                      { icon: Shield, label: "Windows", value: product.requirements.windows },
+                      { icon: Lock, label: "Type", value: product.requirements.cheatType },
+                      { icon: Check, label: "Controller", value: product.requirements.controller ? "Supported" : "Not Supported" },
+                    ].map((req, idx) => (
+                      <div key={idx} className="flex items-center gap-3 p-4 bg-[#0a0a0a]/50 rounded-xl border border-[#1a1a1a] hover:border-[#dc2626]/30 transition-all group">
+                        <div className="w-10 h-10 rounded-lg bg-[#dc2626]/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <req.icon className="w-5 h-5 text-[#dc2626]" />
+                        </div>
+                        <div>
+                          <p className="text-white/50 text-xs font-medium uppercase">{req.label}</p>
+                          <p className="text-white font-semibold">{req.value}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Features Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {[
+                    { title: "AIMBOT", desc: "External Aim Assistance With Tuning", features: product.features.aimbot, gradient: "from-red-500/20 to-orange-500/20" },
+                    { title: "ESP", desc: "Enemy, Item, And Loot Awareness", features: product.features.esp, gradient: "from-purple-500/20 to-pink-500/20" },
+                    { title: "MISC", desc: "Customization And Utility Features", features: product.features.misc, gradient: "from-blue-500/20 to-cyan-500/20" },
+                  ].map((category, idx) => (
+                    <div key={idx} className="group relative bg-gradient-to-br from-[#111111] to-[#0a0a0a] rounded-2xl p-6 border border-[#1a1a1a] hover:border-[#dc2626]/30 transition-all overflow-hidden">
+                      <div className={`absolute inset-0 bg-gradient-to-br ${category.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
+                      <div className="absolute left-0 top-6 bottom-6 w-1 bg-gradient-to-b from-[#dc2626] to-transparent rounded-full" />
+                      <div className="relative pl-4">
+                        <h3 className="text-white font-bold text-xl mb-2">{category.title}</h3>
+                        <p className="text-white/50 text-sm mb-6">{category.desc}</p>
+                        <ul className="space-y-3">
+                          {category.features && category.features.length > 0 ? (
+                            category.features.map((feature, featureIdx) => (
+                              <li key={featureIdx} className="flex items-start gap-3 text-sm group/item">
+                                <CheckCircle className="w-4 h-4 text-[#dc2626] flex-shrink-0 mt-0.5 group-hover/item:scale-110 transition-transform" />
+                                <span className="text-white/70 group-hover/item:text-white transition-colors">{feature}</span>
+                              </li>
+                            ))
+                          ) : (
+                            <li className="text-white/40 text-sm italic">No {category.title.toLowerCase()} features</li>
+                          )}
+                        </ul>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-              
-              <h2 className="text-2xl font-bold text-white mb-2">Purchase Complete!</h2>
-              <p className="text-white/60 mb-6">
-                Your license key has been sent to {customerEmail}
-              </p>
-              
-              <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg p-4 mb-4">
-                <p className="text-white/60 text-sm mb-1">Order Number</p>
-                <p className="text-white font-mono">{orderDetails.orderNumber}</p>
+            )}
+
+            {activeTab === "reviews" && (
+              <div className="space-y-6">
+                {/* Review Stats */}
+                <div className="bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-[#1a1a1a] rounded-2xl p-8">
+                  <div className="grid md:grid-cols-4 gap-6 text-center">
+                    <div className="space-y-2">
+                      <p className="text-5xl font-bold text-[#dc2626]">4.9</p>
+                      <div className="flex items-center justify-center gap-1">
+                        {[...Array(5)].map((_, i) => (
+                          <Star key={i} className="w-5 h-5 text-yellow-400 fill-yellow-400" />
+                        ))}
+                      </div>
+                      <p className="text-white/60 text-sm">Average Rating</p>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-5xl font-bold text-white">2.4K+</p>
+                      <p className="text-white/60 text-sm">Total Reviews</p>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-5xl font-bold text-green-400">98%</p>
+                      <p className="text-white/60 text-sm">Satisfaction</p>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-5xl font-bold text-blue-400">15K+</p>
+                      <p className="text-white/60 text-sm">Active Users</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Reviews Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {(reviews.length > 0 ? reviews : getProductReviews(product.name)).map((review, index) => (
+                    <div 
+                      key={review.id || index} 
+                      className="group relative bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-[#1a1a1a] rounded-2xl p-6 hover:border-[#dc2626]/30 transition-all duration-300 overflow-hidden"
+                    >
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-[#dc2626]/5 rounded-full blur-2xl group-hover:bg-[#dc2626]/10 transition-colors" />
+                      <div className="relative">
+                        <div className="flex items-center gap-1 mb-4">
+                          {[...Array(5)].map((_, i) => (
+                            <Star 
+                              key={i} 
+                              className={`w-4 h-4 ${i < review.rating ? 'text-yellow-400 fill-yellow-400' : 'text-white/20'}`}
+                            />
+                          ))}
+                        </div>
+                        <p className="text-white/80 text-sm mb-6 leading-relaxed line-clamp-4">{review.text}</p>
+                        <div className="flex items-center gap-3 pt-4 border-t border-[#1a1a1a]">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#dc2626] to-[#ef4444] flex items-center justify-center text-white text-sm font-bold ring-2 ring-[#dc2626]/20">
+                            {review.avatar || review.username[0].toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-white text-sm font-semibold">{review.username}</p>
+                            <p className="text-white/40 text-xs">{formatDate(review.created_at)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-              
-              <div className="bg-[#0a0a0a] border border-[#dc2626]/30 rounded-lg p-4 mb-6">
-                <p className="text-white/60 text-sm mb-1">Your License Key</p>
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-[#dc2626] font-mono font-bold text-lg">{orderDetails.licenseKey}</p>
-                  <button
-                    onClick={() => copyToClipboard(orderDetails.licenseKey)}
-                    className="p-2 hover:bg-[#1a1a1a] rounded-lg transition-colors"
+            )}
+
+            {activeTab === "faq" && (
+              <div className="space-y-4">
+                {[
+                  {
+                    question: "Are Magma Cheats undetectable?",
+                    answer: "Our cheats are built with the latest security measures to stay ahead of anti-cheat systems. We continuously update our software to minimize detection risks, giving you the safest experience possible."
+                  },
+                  {
+                    question: "What's the difference between cheats?",
+                    answer: "The difference comes down to the game supported, included features, and customization. Some cheats include advanced visuals or extra aimbot features, while others are optimized for maximum stealth."
+                  },
+                  {
+                    question: "Where can I get customer support?",
+                    answer: "Our dedicated support team is available 24/7 to assist you. You can reach us anytime through our Discord server for fast and reliable assistance."
+                  },
+                  {
+                    question: "How do I purchase and get instant access?",
+                    answer: "Simply select your desired package, complete the payment, and within seconds, your access key will be delivered instantly. No waiting, no delays."
+                  }
+                ].map((faq, index) => (
+                  <div 
+                    key={index} 
+                    className="group bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-[#1a1a1a] rounded-2xl p-6 hover:border-[#dc2626]/30 transition-all"
                   >
-                    <Copy className="w-5 h-5 text-white/60" />
-                  </button>
-                </div>
-              </div>
-              
-              <button
-                onClick={() => {
-                  setPurchaseComplete(false);
-                  setShowCheckoutModal(false);
-                  setOrderDetails(null);
-                  setCustomerEmail("");
-                  setCouponCode("");
-                  setCouponDiscount(0);
-                }}
-                className="w-full py-3 bg-[#dc2626] hover:bg-[#ef4444] text-white font-semibold rounded-lg transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Information Section */}
-        <div className="bg-[#111111] border border-[#1a1a1a] rounded-xl p-6 mb-8">
-          <h2 className="text-[#dc2626] font-bold text-lg mb-4 tracking-wider">INFORMATION</h2>
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 bg-[#dc2626] rounded-full" />
-              <span className="text-white/80 text-sm">Supported CPU: {product.requirements.cpu}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 bg-[#dc2626] rounded-full" />
-              <span className="text-white/80 text-sm">Supported Windows Version: {product.requirements.windows}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 bg-[#dc2626] rounded-full" />
-              <span className="text-white/80 text-sm">Cheat Type: {product.requirements.cheatType}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 bg-[#dc2626] rounded-full" />
-              <span className="text-white/80 text-sm">
-                {product.requirements.controller ? "Controller Supported" : "Controller Not Supported"}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Features Section */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          {/* AIMBOT Card */}
-          <div className="relative bg-[#111111] rounded-xl p-6 overflow-hidden group hover:shadow-lg hover:shadow-[#dc2626]/10 transition-all duration-300">
-            {/* Curved left border effect */}
-            <div className="absolute left-0 top-4 bottom-4 w-1 bg-[#dc2626] rounded-full" />
-            <div className="pl-4">
-              <h3 className="text-white font-bold text-lg mb-1">AIMBOT</h3>
-              <p className="text-white/50 text-sm mb-4">External Aim Assistance With Tuning.</p>
-              <ul className="space-y-2.5">
-                {product.features.aimbot && product.features.aimbot.length > 0 ? (
-                  product.features.aimbot.map((feature, index) => (
-                    <li key={index} className="flex items-center gap-2.5 text-sm">
-                      <span className="w-1.5 h-1.5 bg-[#dc2626] rounded-full flex-shrink-0" />
-                      <span className="text-white/70">{feature}</span>
-                    </li>
-                  ))
-                ) : (
-                  <li className="text-white/40 text-sm italic">No aimbot features</li>
-                )}
-              </ul>
-            </div>
-          </div>
-
-          {/* ESP Card */}
-          <div className="relative bg-[#111111] rounded-xl p-6 overflow-hidden group hover:shadow-lg hover:shadow-[#dc2626]/10 transition-all duration-300">
-            {/* Curved left border effect */}
-            <div className="absolute left-0 top-4 bottom-4 w-1 bg-[#dc2626] rounded-full" />
-            <div className="pl-4">
-              <h3 className="text-white font-bold text-lg mb-1">ESP</h3>
-              <p className="text-white/50 text-sm mb-4">Enemy, Item, And Loot Awareness.</p>
-              <ul className="space-y-2.5">
-                {product.features.esp && product.features.esp.length > 0 ? (
-                  product.features.esp.map((feature, index) => (
-                    <li key={index} className="flex items-center gap-2.5 text-sm">
-                      <span className="w-1.5 h-1.5 bg-[#dc2626] rounded-full flex-shrink-0" />
-                      <span className="text-white/70">{feature}</span>
-                    </li>
-                  ))
-                ) : (
-                  <li className="text-white/40 text-sm italic">No ESP features</li>
-                )}
-              </ul>
-            </div>
-          </div>
-
-          {/* MISC Card */}
-          <div className="relative bg-[#111111] rounded-xl p-6 overflow-hidden group hover:shadow-lg hover:shadow-[#dc2626]/10 transition-all duration-300">
-            {/* Curved left border effect */}
-            <div className="absolute left-0 top-4 bottom-4 w-1 bg-[#dc2626] rounded-full" />
-            <div className="pl-4">
-              <h3 className="text-white font-bold text-lg mb-1">MISC</h3>
-              <p className="text-white/50 text-sm mb-4">Customization And Utility Features.</p>
-              <ul className="space-y-2.5">
-                {product.features.misc && product.features.misc.length > 0 ? (
-                  product.features.misc.map((feature, index) => (
-                    <li key={index} className="flex items-center gap-2.5 text-sm">
-                      <span className="w-1.5 h-1.5 bg-[#dc2626] rounded-full flex-shrink-0" />
-                      <span className="text-white/70">{feature}</span>
-                    </li>
-                  ))
-                ) : (
-                  <li className="text-white/40 text-sm italic">No misc features</li>
-                )}
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        {/* Reviews Section */}
-        <div className="mb-8">
-          <h2 className="text-white font-bold text-lg mb-6 flex items-center gap-3">
-            <span className="w-1 h-6 bg-[#dc2626] rounded-full" />
-            CUSTOMER REVIEWS
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {(reviews.length > 0 ? reviews : getProductReviews(product.name)).map((review, index) => (
-              <div 
-                key={review.id || index} 
-                className="bg-[#111111] border border-[#1a1a1a] rounded-xl p-5 hover:border-[#dc2626]/30 transition-all duration-300 group"
-              >
-                <p className="text-white/80 text-sm mb-5 leading-relaxed line-clamp-4">{review.text}</p>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-[#dc2626] flex items-center justify-center text-white text-sm font-bold">
-                      {review.avatar || review.username[0].toUpperCase()}
-                    </div>
-                    <div>
-                      <p className="text-white text-sm font-medium">{review.username}</p>
-                      <p className="text-white/40 text-xs">{formatDate(review.created_at)}</p>
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-[#dc2626] to-[#ef4444] flex items-center justify-center text-white text-lg font-bold shadow-lg shadow-[#dc2626]/20">
+                        {index + 1}
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-white font-bold text-lg mb-3 flex items-center gap-2 group-hover:text-[#dc2626] transition-colors">
+                          {faq.question}
+                          <ChevronRight className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </h3>
+                        <p className="text-white/70 text-sm leading-relaxed">{faq.answer}</p>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <span className="text-white font-bold text-sm">{review.rating}</span>
-                    <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                  </div>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* FAQ Section */}
-        <div className="bg-[#111111] border border-[#1a1a1a] rounded-xl p-6">
-          <div className="space-y-6">
-            {[
-              {
-                question: "Are Magma Cheats undetectable?",
-                answer: "Our cheats are built with the latest security measures to stay ahead of anti-cheat systems. We continuously update our software to minimize detection risks, giving you the safest experience possible."
-              },
-              {
-                question: "What's the difference between cheats?",
-                answer: "The difference comes down to the game supported, included features, and customization. Some cheats include advanced visuals or extra aimbot features, while others are optimized for maximum stealth."
-              },
-              {
-                question: "Where can I get customer support?",
-                answer: "Our dedicated support team is available 24/7 to assist you. You can reach us anytime through our Discord server for fast and reliable assistance."
-              },
-              {
-                question: "How do I purchase and get instant access?",
-                answer: "Simply select your desired package, complete the payment, and within seconds, your access key will be delivered instantly. No waiting, no delays."
-              }
-            ].map((faq, index) => (
-              <div key={index} className="pb-6 border-b border-[#1a1a1a] last:border-0 last:pb-0">
-                <div className="flex items-start gap-4">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full border-2 border-[#dc2626] flex items-center justify-center text-[#dc2626] text-sm font-bold">
-                    {index + 1}
-                  </div>
-                  <div>
-                    <h3 className="text-white font-bold text-lg mb-2">{faq.question}</h3>
-                    <p className="text-white/60 text-sm leading-relaxed">{faq.answer}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
+            )}
           </div>
         </div>
       </div>
+
+      {/* Enhanced Checkout Modal */}
+      {showCheckoutModal && !purchaseComplete && (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-gradient-to-br from-[#111111] to-[#0a0a0a] border-2 border-[#1a1a1a] rounded-2xl max-w-md w-full p-8 relative shadow-2xl">
+            <button
+              onClick={() => setShowCheckoutModal(false)}
+              className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-lg bg-[#1a1a1a] text-white/60 hover:text-white hover:bg-[#dc2626] transition-all"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-xl bg-[#dc2626]/10 flex items-center justify-center">
+                <ShoppingCart className="w-6 h-6 text-[#dc2626]" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-white">Complete Purchase</h2>
+                <p className="text-white/60 text-sm">
+                  {product.name} - {product.pricing[selectedPriceIndex].duration}
+                </p>
+              </div>
+            </div>
+            
+            {/* Email Input */}
+            <div className="mb-5 group/input">
+              <label className="block text-white/80 text-sm mb-2 font-medium">Email Address</label>
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40 group-focus-within/input:text-[#dc2626] transition-colors" />
+                <input
+                  type="email"
+                  value={customerEmail}
+                  onChange={(e) => setCustomerEmail(e.target.value)}
+                  placeholder="your@email.com"
+                  className="w-full pl-12 pr-4 py-3.5 bg-[#0a0a0a] border-2 border-[#1a1a1a] rounded-xl text-white placeholder:text-white/40 focus:border-[#dc2626] focus:outline-none focus:ring-2 focus:ring-[#dc2626]/20 transition-all"
+                />
+              </div>
+              <p className="text-white/50 text-xs mt-2">Your license key will be sent to this email</p>
+            </div>
+            
+            {/* Coupon Code */}
+            <div className="mb-6">
+              <label className="block text-white/80 text-sm mb-2 font-medium">Coupon Code (Optional)</label>
+              <div className="flex gap-3">
+                <input
+                  type="text"
+                  value={couponCode}
+                  onChange={(e) => {
+                    setCouponCode(e.target.value.toUpperCase());
+                    setCouponValid(null);
+                    setCouponDiscount(0);
+                  }}
+                  placeholder="SAVE10"
+                  className="flex-1 px-4 py-3.5 bg-[#0a0a0a] border-2 border-[#1a1a1a] rounded-xl text-white placeholder:text-white/40 focus:border-[#dc2626] focus:outline-none focus:ring-2 focus:ring-[#dc2626]/20 transition-all"
+                />
+                <button
+                  onClick={handleValidateCoupon}
+                  disabled={isValidatingCoupon || !couponCode.trim()}
+                  className="px-6 py-3.5 bg-[#1a1a1a] hover:bg-[#262626] text-white rounded-xl transition-all disabled:opacity-50 font-semibold"
+                >
+                  {isValidatingCoupon ? <Loader2 className="w-5 h-5 animate-spin" /> : "Apply"}
+                </button>
+              </div>
+              {couponValid === true && (
+                <p className="text-green-400 text-sm mt-2 flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4" />
+                  Coupon applied! {couponDiscount}% off
+                </p>
+              )}
+              {couponValid === false && (
+                <p className="text-red-400 text-sm mt-2 flex items-center gap-2">
+                  <X className="w-4 h-4" />
+                  Invalid or expired coupon
+                </p>
+              )}
+            </div>
+            
+            {/* Order Summary */}
+            <div className="bg-[#0a0a0a] border-2 border-[#1a1a1a] rounded-xl p-5 mb-6 space-y-3">
+              <div className="flex justify-between text-white/80">
+                <span>Subtotal</span>
+                <span className="font-semibold">${(product.pricing[selectedPriceIndex].price * quantity).toFixed(2)}</span>
+              </div>
+              {couponDiscount > 0 && (
+                <div className="flex justify-between text-green-400">
+                  <span>Discount ({couponDiscount}%)</span>
+                  <span className="font-semibold">-${((product.pricing[selectedPriceIndex].price * quantity * couponDiscount) / 100).toFixed(2)}</span>
+                </div>
+              )}
+              <div className="border-t-2 border-[#1a1a1a] pt-3 flex justify-between items-center">
+                <span className="text-white font-bold text-lg">Total</span>
+                <span className="text-[#dc2626] font-bold text-3xl">
+                  ${((product.pricing[selectedPriceIndex].price * quantity) * (1 - couponDiscount / 100)).toFixed(2)}
+                </span>
+              </div>
+            </div>
+            
+            {checkoutError && (
+              <div className="mb-4 p-4 bg-red-500/10 border-2 border-red-500/30 rounded-xl text-red-400 text-sm flex items-start gap-3 animate-shake">
+                <X className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                <span>{checkoutError}</span>
+              </div>
+            )}
+            
+            <button
+              onClick={handleCheckout}
+              disabled={isProcessing || !customerEmail}
+              className={`relative w-full py-4 rounded-xl font-bold text-lg transition-all duration-300 flex items-center justify-center gap-3 overflow-hidden ${
+                !isProcessing && customerEmail
+                  ? "bg-gradient-to-r from-[#dc2626] to-[#ef4444] text-white hover:from-[#ef4444] hover:to-[#dc2626] hover:shadow-2xl hover:shadow-[#dc2626]/40 hover:-translate-y-1"
+                  : "bg-[#1a1a1a] text-white/40 cursor-not-allowed"
+              }`}
+            >
+              <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+              {isProcessing ? (
+                <>
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <Lock className="w-6 h-6" />
+                  Complete Secure Purchase
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Enhanced Success Modal */}
+      {purchaseComplete && orderDetails && (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-gradient-to-br from-[#111111] to-[#0a0a0a] border-2 border-green-500/30 rounded-2xl max-w-md w-full p-8 text-center shadow-2xl">
+            <div className="w-20 h-20 bg-gradient-to-br from-green-500/20 to-green-600/20 rounded-full flex items-center justify-center mx-auto mb-6 relative">
+              <div className="absolute inset-0 bg-green-500/20 rounded-full animate-ping" />
+              <CheckCircle className="w-10 h-10 text-green-500 relative" />
+            </div>
+            
+            <h2 className="text-3xl font-bold text-white mb-3">Purchase Complete!</h2>
+            <p className="text-white/60 mb-8">
+              Your license key has been sent to<br />
+              <span className="text-[#dc2626] font-semibold">{customerEmail}</span>
+            </p>
+            
+            <div className="bg-[#0a0a0a] border-2 border-[#1a1a1a] rounded-xl p-5 mb-4">
+              <p className="text-white/60 text-sm mb-2">Order Number</p>
+              <p className="text-white font-mono font-bold text-lg">{orderDetails.orderNumber}</p>
+            </div>
+            
+            <div className="bg-gradient-to-br from-[#dc2626]/10 to-transparent border-2 border-[#dc2626]/30 rounded-xl p-5 mb-8">
+              <p className="text-white/60 text-sm mb-3">Your License Key</p>
+              <div className="flex items-center justify-between gap-3 bg-[#0a0a0a] rounded-lg p-3">
+                <p className="text-[#dc2626] font-mono font-bold text-lg flex-1">{orderDetails.licenseKey}</p>
+                <button
+                  onClick={() => copyToClipboard(orderDetails.licenseKey)}
+                  className="p-2 hover:bg-[#1a1a1a] rounded-lg transition-colors group"
+                >
+                  <Copy className="w-5 h-5 text-white/60 group-hover:text-[#dc2626]" />
+                </button>
+              </div>
+            </div>
+            
+            <button
+              onClick={() => {
+                setPurchaseComplete(false);
+                setShowCheckoutModal(false);
+                setOrderDetails(null);
+                setCustomerEmail("");
+                setCouponCode("");
+                setCouponDiscount(0);
+              }}
+              className="w-full py-4 bg-gradient-to-r from-[#dc2626] to-[#ef4444] hover:from-[#ef4444] hover:to-[#dc2626] text-white font-bold rounded-xl transition-all hover:shadow-xl hover:shadow-[#dc2626]/30"
+            >
+              Continue Shopping
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Add to Cart Modal */}
+      <AddToCartModal
+        isOpen={showAddToCartModal}
+        onClose={() => setShowAddToCartModal(false)}
+        product={{
+          name: product.name,
+          image: product.image,
+          duration: product.pricing[selectedPriceIndex].duration,
+          quantity: quantity,
+        }}
+      />
+
+      <style jsx>{`
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes shake {
+          0%, 100% {
+            transform: translateX(0);
+          }
+          25% {
+            transform: translateX(-5px);
+          }
+          75% {
+            transform: translateX(5px);
+          }
+        }
+
+        .animate-fade-in {
+          animation: fade-in 0.6s ease-out;
+        }
+
+        .animate-shake {
+          animation: shake 0.3s ease-in-out;
+        }
+
+        .delay-1000 {
+          animation-delay: 1000ms;
+        }
+
+        .hover\\:scale-102:hover {
+          transform: scale(1.02);
+        }
+      `}</style>
     </div>
   );
 }

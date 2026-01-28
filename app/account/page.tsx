@@ -49,6 +49,12 @@ import {
   CreditCard,
   Hash,
   Sparkles,
+  TrendingUp,
+  Award,
+  Zap,
+  Download,
+  Copy,
+  ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -92,6 +98,7 @@ export default function AccountPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [licenses, setLicenses] = useState<License[]>([]);
   const [ordersLicensesLoading, setOrdersLicensesLoading] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -157,16 +164,22 @@ export default function AccountPage() {
 
   if (redirecting || (!isLoading && !user)) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <div className="relative">
+          <div className="w-16 h-16 border-4 border-[#1a1a1a] rounded-full animate-spin" />
+          <div className="w-16 h-16 border-t-4 border-[#dc2626] rounded-full animate-spin absolute top-0 left-0" />
+        </div>
       </div>
     );
   }
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <div className="relative">
+          <div className="w-16 h-16 border-4 border-[#1a1a1a] rounded-full animate-spin" />
+          <div className="w-16 h-16 border-t-4 border-[#dc2626] rounded-full animate-spin absolute top-0 left-0" />
+        </div>
       </div>
     );
   }
@@ -244,20 +257,26 @@ export default function AccountPage() {
     }
   };
 
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(id);
+    setTimeout(() => setCopiedKey(null), 2000);
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "completed":
         return (
-          <Badge className="bg-green-500/20 text-green-400 hover:bg-green-500/30 border-0">
-            <CheckCircle2 className="w-3 h-3 mr-1" />
+          <Badge className="bg-green-500/20 text-green-400 hover:bg-green-500/30 border-0 flex items-center gap-1.5">
+            <CheckCircle2 className="w-3 h-3" />
             Completed
           </Badge>
         );
       case "pending":
       case "paid":
         return (
-          <Badge className="bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 border-0">
-            <Clock className="w-3 h-3 mr-1" />
+          <Badge className="bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 border-0 flex items-center gap-1.5">
+            <Clock className="w-3 h-3 animate-pulse" />
             In Progress
           </Badge>
         );
@@ -287,8 +306,8 @@ export default function AccountPage() {
   const navItems = [
     { id: "dashboard" as TabType, icon: LayoutDashboard, label: "Dashboard" },
     { id: "orders" as TabType, icon: ShoppingBag, label: "Orders" },
-    { id: "delivered" as TabType, icon: Package, label: "Delivered goods" },
-    { id: "profile" as TabType, icon: User, label: "Profile Settings" },
+    { id: "delivered" as TabType, icon: Package, label: "Delivered" },
+    { id: "profile" as TabType, icon: User, label: "Profile" },
     { id: "security" as TabType, icon: Shield, label: "Security" },
   ];
 
@@ -296,589 +315,751 @@ export default function AccountPage() {
     switch (activeTab) {
       case "dashboard":
         return (
-          <div className="space-y-6">
-            {/* Welcome Header */}
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground">
-                Welcome back, {user?.username || "User"}
-              </h1>
-              <p className="text-muted-foreground mt-1">
-                Here&apos;s what&apos;s happening with your account
-              </p>
-            </div>
-
-            {/* Stat Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card className="bg-card border-border hover:border-primary/50 transition-colors">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 rounded-xl bg-primary/10">
-                      <Package className="w-6 h-6 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Total Orders</p>
-                      <p className="text-2xl font-bold text-foreground">{stats.totalOrders}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-card border-border hover:border-yellow-500/50 transition-colors">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 rounded-xl bg-yellow-500/10">
-                      <Clock className="w-6 h-6 text-yellow-500" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">In Progress</p>
-                      <p className="text-2xl font-bold text-foreground">{stats.inProgress}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-card border-border hover:border-green-500/50 transition-colors">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 rounded-xl bg-green-500/10">
-                      <CheckCircle2 className="w-6 h-6 text-green-500" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Completed</p>
-                      <p className="text-2xl font-bold text-foreground">{stats.completed}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-card border-border hover:border-primary/50 transition-colors">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 rounded-xl bg-primary/10">
-                      <Key className="w-6 h-6 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Delivered goods</p>
-                      <p className="text-2xl font-bold text-foreground">{stats.deliveredCount}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Recent Orders */}
-            <Card className="bg-card border-border">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-lg">Recent Orders</CardTitle>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setActiveTab("orders")}
-                  className="text-primary hover:text-primary/80 hover:bg-primary/10"
-                >
-                  View All
-                  <ChevronRight className="w-4 h-4 ml-1" />
-                </Button>
-              </CardHeader>
-              <CardContent>
-                {ordersLicensesLoading ? (
-                  <div className="py-8 flex justify-center">
-                    <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {orders.slice(0, 3).map((order) => (
-                      <div
-                        key={order.id}
-                        className="flex items-center justify-between p-4 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="p-2 rounded-lg bg-primary/10">
-                            <Package className="w-5 h-5 text-primary" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-foreground">{order.product}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {order.order_number} • {order.duration}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          {getStatusBadge(order.status)}
-                          <p className="text-sm text-muted-foreground mt-1">${order.total.toFixed(2)}</p>
-                        </div>
+          <div className="space-y-6 animate-fade-in">
+            {/* Enhanced Welcome Header */}
+            <div className="relative">
+              <div className="absolute -inset-1 bg-gradient-to-r from-[#dc2626]/20 to-transparent rounded-2xl blur-xl" />
+              <div className="relative bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-[#1a1a1a] rounded-2xl p-8">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 rounded-lg bg-[#dc2626]/10">
+                        <Sparkles className="w-5 h-5 text-[#dc2626]" />
                       </div>
-                    ))}
-                    {!ordersLicensesLoading && orders.length === 0 && (
-                      <p className="py-6 text-center text-muted-foreground text-sm">No orders yet</p>
-                    )}
+                      <h1 className="text-3xl md:text-4xl font-bold text-white">
+                        Welcome back, {user?.username || "User"}!
+                      </h1>
+                    </div>
+                    <p className="text-white/60 mt-2">
+                      Here&apos;s what&apos;s happening with your account
+                    </p>
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                  <div className="hidden md:block p-3 rounded-xl bg-[#dc2626]/10">
+                    <TrendingUp className="w-8 h-8 text-[#dc2626]" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Enhanced Stat Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+              {[
+                { 
+                  icon: Package, 
+                  label: "Total Orders", 
+                  value: stats.totalOrders, 
+                  gradient: "from-[#dc2626]/20 to-transparent",
+                  iconBg: "bg-[#dc2626]/10",
+                  iconColor: "text-[#dc2626]"
+                },
+                { 
+                  icon: Clock, 
+                  label: "In Progress", 
+                  value: stats.inProgress,
+                  gradient: "from-yellow-500/20 to-transparent",
+                  iconBg: "bg-yellow-500/10",
+                  iconColor: "text-yellow-500"
+                },
+                { 
+                  icon: CheckCircle2, 
+                  label: "Completed", 
+                  value: stats.completed,
+                  gradient: "from-green-500/20 to-transparent",
+                  iconBg: "bg-green-500/10",
+                  iconColor: "text-green-500"
+                },
+                { 
+                  icon: Key, 
+                  label: "License Keys", 
+                  value: stats.deliveredCount,
+                  gradient: "from-blue-500/20 to-transparent",
+                  iconBg: "bg-blue-500/10",
+                  iconColor: "text-blue-500"
+                },
+              ].map((stat, index) => (
+                <div key={index} className="group relative" style={{ animationDelay: `${index * 100}ms` }}>
+                  <div className={`absolute -inset-0.5 bg-gradient-to-r ${stat.gradient} rounded-2xl blur opacity-0 group-hover:opacity-100 transition duration-500`} />
+                  <div className="relative bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-[#1a1a1a] rounded-2xl p-6 hover:border-[#dc2626]/30 transition-all">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className={`p-3 rounded-xl ${stat.iconBg} group-hover:scale-110 transition-transform`}>
+                        <stat.icon className={`w-6 h-6 ${stat.iconColor}`} />
+                      </div>
+                      <TrendingUp className="w-4 h-4 text-green-400 opacity-50" />
+                    </div>
+                    <p className="text-white/60 text-sm mb-1">{stat.label}</p>
+                    <p className="text-3xl font-bold text-white">{stat.value}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Enhanced Recent Orders */}
+            <div className="relative group">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-[#dc2626]/20 to-transparent rounded-2xl blur opacity-0 group-hover:opacity-100 transition duration-500" />
+              <Card className="relative bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-[#1a1a1a]">
+                <CardHeader className="flex flex-row items-center justify-between border-b border-[#1a1a1a]">
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    <ShoppingBag className="w-5 h-5 text-[#dc2626]" />
+                    Recent Orders
+                  </CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setActiveTab("orders")}
+                    className="text-[#dc2626] hover:text-[#ef4444] hover:bg-[#dc2626]/10"
+                  >
+                    View All
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </CardHeader>
+                <CardContent className="p-6">
+                  {ordersLicensesLoading ? (
+                    <div className="py-12 flex justify-center">
+                      <div className="relative">
+                        <div className="w-12 h-12 border-4 border-[#1a1a1a] rounded-full animate-spin" />
+                        <div className="w-12 h-12 border-t-4 border-[#dc2626] rounded-full animate-spin absolute top-0 left-0" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {orders.slice(0, 3).map((order, index) => (
+                        <div
+                          key={order.id}
+                          className="group/item relative"
+                          style={{ animationDelay: `${index * 100}ms` }}
+                        >
+                          <div className="absolute -inset-0.5 bg-gradient-to-r from-[#dc2626]/20 to-transparent rounded-xl blur opacity-0 group-hover/item:opacity-100 transition duration-300" />
+                          <div className="relative flex items-center justify-between p-4 rounded-xl bg-[#0a0a0a] border border-[#1a1a1a] hover:border-[#dc2626]/30 transition-all">
+                            <div className="flex items-center gap-4">
+                              <div className="p-3 rounded-xl bg-[#dc2626]/10 group-hover/item:scale-110 transition-transform">
+                                <Package className="w-5 h-5 text-[#dc2626]" />
+                              </div>
+                              <div>
+                                <p className="font-semibold text-white">{order.product}</p>
+                                <p className="text-sm text-white/50 font-mono">
+                                  {order.order_number} • {order.duration}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              {getStatusBadge(order.status)}
+                              <p className="text-sm text-white/60 mt-1 font-semibold">${order.total.toFixed(2)}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      {!ordersLicensesLoading && orders.length === 0 && (
+                        <div className="py-12 text-center">
+                          <div className="w-16 h-16 rounded-full bg-[#dc2626]/10 flex items-center justify-center mx-auto mb-4">
+                            <ShoppingBag className="w-8 h-8 text-[#dc2626]" />
+                          </div>
+                          <p className="text-white/60">No orders yet</p>
+                          <p className="text-white/40 text-sm mt-1">Your orders will appear here</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </div>
         );
 
       case "orders":
         return (
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground">Your Orders</h1>
-              <p className="text-muted-foreground mt-1">View and manage your order history</p>
+          <div className="space-y-6 animate-fade-in">
+            <div className="relative">
+              <div className="absolute -inset-1 bg-gradient-to-r from-[#dc2626]/20 to-transparent rounded-2xl blur-xl" />
+              <div className="relative bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-[#1a1a1a] rounded-2xl p-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-[#dc2626]/10">
+                    <ShoppingBag className="w-6 h-6 text-[#dc2626]" />
+                  </div>
+                  <div>
+                    <h1 className="text-3xl font-bold text-white">Your Orders</h1>
+                    <p className="text-white/60 mt-1">View and manage your order history</p>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <Card className="bg-card border-border">
-              <CardContent className="p-0">
-                {ordersLicensesLoading ? (
-                  <div className="py-12 flex justify-center">
-                    <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="border-border hover:bg-transparent">
-                          <TableHead className="text-muted-foreground">Order ID</TableHead>
-                          <TableHead className="text-muted-foreground">Product</TableHead>
-                          <TableHead className="text-muted-foreground">Date</TableHead>
-                          <TableHead className="text-muted-foreground">Status</TableHead>
-                          <TableHead className="text-muted-foreground">Total</TableHead>
-                          <TableHead className="text-muted-foreground text-right">Action</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {orders.map((order) => (
-                          <TableRow key={order.id} className="border-border hover:bg-secondary/50">
-                            <TableCell className="font-mono text-foreground">{order.order_number}</TableCell>
-                            <TableCell>
-                              <div>
-                                <p className="font-medium text-foreground">{order.product}</p>
-                                <p className="text-sm text-muted-foreground">{order.duration}</p>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {new Date(order.date).toLocaleDateString("en-US", {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric",
-                              })}
-                            </TableCell>
-                            <TableCell>{getStatusBadge(order.status)}</TableCell>
-                            <TableCell className="font-medium text-foreground">${order.total.toFixed(2)}</TableCell>
-                            <TableCell className="text-right">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleViewOrder(order)}
-                                className="text-primary hover:text-primary/80 hover:bg-primary/10"
-                              >
-                                <Eye className="w-4 h-4 mr-1" />
-                                View
-                              </Button>
-                            </TableCell>
+            <div className="relative group">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-[#dc2626]/20 to-transparent rounded-2xl blur opacity-0 group-hover:opacity-100 transition duration-500" />
+              <Card className="relative bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-[#1a1a1a]">
+                <CardContent className="p-0">
+                  {ordersLicensesLoading ? (
+                    <div className="py-12 flex justify-center">
+                      <div className="relative">
+                        <div className="w-12 h-12 border-4 border-[#1a1a1a] rounded-full animate-spin" />
+                        <div className="w-12 h-12 border-t-4 border-[#dc2626] rounded-full animate-spin absolute top-0 left-0" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="border-[#1a1a1a] hover:bg-transparent">
+                            <TableHead className="text-white/60 font-semibold">Order ID</TableHead>
+                            <TableHead className="text-white/60 font-semibold">Product</TableHead>
+                            <TableHead className="text-white/60 font-semibold">Date</TableHead>
+                            <TableHead className="text-white/60 font-semibold">Status</TableHead>
+                            <TableHead className="text-white/60 font-semibold">Total</TableHead>
+                            <TableHead className="text-white/60 font-semibold text-right">Action</TableHead>
                           </TableRow>
-                        ))}
-                        {orders.length === 0 && (
-                          <TableRow>
-                            <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
-                              No orders yet
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                        </TableHeader>
+                        <TableBody>
+                          {orders.map((order) => (
+                            <TableRow key={order.id} className="border-[#1a1a1a] hover:bg-[#0a0a0a]/50 group/row transition-colors">
+                              <TableCell className="font-mono text-white/80">{order.order_number}</TableCell>
+                              <TableCell>
+                                <div>
+                                  <p className="font-semibold text-white group-hover/row:text-[#dc2626] transition-colors">{order.product}</p>
+                                  <p className="text-sm text-white/50">{order.duration}</p>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-white/70">
+                                {new Date(order.date).toLocaleDateString("en-US", {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                })}
+                              </TableCell>
+                              <TableCell>{getStatusBadge(order.status)}</TableCell>
+                              <TableCell className="font-bold text-white">${order.total.toFixed(2)}</TableCell>
+                              <TableCell className="text-right">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleViewOrder(order)}
+                                  className="text-[#dc2626] hover:text-[#ef4444] hover:bg-[#dc2626]/10"
+                                >
+                                  <Eye className="w-4 h-4 mr-1" />
+                                  View
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          {orders.length === 0 && (
+                            <TableRow>
+                              <TableCell colSpan={6} className="py-16 text-center">
+                                <div className="w-16 h-16 rounded-full bg-[#dc2626]/10 flex items-center justify-center mx-auto mb-4">
+                                  <ShoppingBag className="w-8 h-8 text-[#dc2626]" />
+                                </div>
+                                <p className="text-white/60">No orders yet</p>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </div>
         );
 
       case "delivered":
         return (
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground">Delivered goods</h1>
-              <p className="text-muted-foreground mt-1">
-                Licenses for purchases under your account email. Buy with this email to see them here.
-              </p>
+          <div className="space-y-6 animate-fade-in">
+            <div className="relative">
+              <div className="absolute -inset-1 bg-gradient-to-r from-[#dc2626]/20 to-transparent rounded-2xl blur-xl" />
+              <div className="relative bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-[#1a1a1a] rounded-2xl p-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-[#dc2626]/10">
+                    <Package className="w-6 h-6 text-[#dc2626]" />
+                  </div>
+                  <div>
+                    <h1 className="text-3xl font-bold text-white">Delivered Licenses</h1>
+                    <p className="text-white/60 mt-1">
+                      Licenses for purchases under your account email
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <Card className="bg-card border-border">
-              <CardContent className="p-0">
-                {ordersLicensesLoading ? (
-                  <div className="py-12 flex justify-center">
-                    <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="border-border hover:bg-transparent">
-                          <TableHead className="text-muted-foreground">Product</TableHead>
-                          <TableHead className="text-muted-foreground">License key</TableHead>
-                          <TableHead className="text-muted-foreground">Status</TableHead>
-                          <TableHead className="text-muted-foreground">Expires</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {licenses.map((l) => (
-                          <TableRow key={l.id} className="border-border hover:bg-secondary/50">
-                            <TableCell className="font-medium text-foreground">{l.product_name}</TableCell>
-                            <TableCell className="font-mono text-sm text-foreground">{l.license_key}</TableCell>
-                            <TableCell>
-                              <Badge className={l.status === "active" ? "bg-green-500/20 text-green-400 border-0" : "bg-muted text-muted-foreground border-0"}>
-                                {l.status}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {l.expires_at ? new Date(l.expires_at).toLocaleDateString("en-US") : "—"}
-                            </TableCell>
+            <div className="relative group">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-[#dc2626]/20 to-transparent rounded-2xl blur opacity-0 group-hover:opacity-100 transition duration-500" />
+              <Card className="relative bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-[#1a1a1a]">
+                <CardContent className="p-0">
+                  {ordersLicensesLoading ? (
+                    <div className="py-12 flex justify-center">
+                      <div className="relative">
+                        <div className="w-12 h-12 border-4 border-[#1a1a1a] rounded-full animate-spin" />
+                        <div className="w-12 h-12 border-t-4 border-[#dc2626] rounded-full animate-spin absolute top-0 left-0" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="border-[#1a1a1a] hover:bg-transparent">
+                            <TableHead className="text-white/60 font-semibold">Product</TableHead>
+                            <TableHead className="text-white/60 font-semibold">License Key</TableHead>
+                            <TableHead className="text-white/60 font-semibold">Status</TableHead>
+                            <TableHead className="text-white/60 font-semibold">Expires</TableHead>
+                            <TableHead className="text-white/60 font-semibold text-right">Actions</TableHead>
                           </TableRow>
-                        ))}
-                        {licenses.length === 0 && (
-                          <TableRow>
-                            <TableCell colSpan={4} className="py-12 text-center text-muted-foreground">
-                              No delivered licenses yet. Orders completed under your account email will appear here.
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                        </TableHeader>
+                        <TableBody>
+                          {licenses.map((l) => (
+                            <TableRow key={l.id} className="border-[#1a1a1a] hover:bg-[#0a0a0a]/50 group/row transition-colors">
+                              <TableCell className="font-semibold text-white">{l.product_name}</TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <code className="font-mono text-sm text-white/80 bg-black/30 px-3 py-1.5 rounded-lg">
+                                    {l.license_key}
+                                  </code>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => copyToClipboard(l.license_key, l.id)}
+                                    className="opacity-0 group-hover/row:opacity-100 transition-opacity hover:bg-[#dc2626]/10"
+                                  >
+                                    {copiedKey === l.id ? (
+                                      <CheckCircle2 className="w-4 h-4 text-green-400" />
+                                    ) : (
+                                      <Copy className="w-4 h-4 text-white/60" />
+                                    )}
+                                  </Button>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge className={l.status === "active" ? "bg-green-500/20 text-green-400 border-0" : "bg-white/10 text-white/60 border-0"}>
+                                  {l.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-white/70">
+                                {l.expires_at ? new Date(l.expires_at).toLocaleDateString("en-US") : "Never"}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-[#dc2626] hover:text-[#ef4444] hover:bg-[#dc2626]/10"
+                                >
+                                  <Download className="w-4 h-4 mr-1" />
+                                  Download
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          {licenses.length === 0 && (
+                            <TableRow>
+                              <TableCell colSpan={5} className="py-16 text-center">
+                                <div className="w-16 h-16 rounded-full bg-[#dc2626]/10 flex items-center justify-center mx-auto mb-4">
+                                  <Key className="w-8 h-8 text-[#dc2626]" />
+                                </div>
+                                <p className="text-white/60">No licenses yet</p>
+                                <p className="text-white/40 text-sm mt-1">Orders completed under your account email will appear here</p>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </div>
         );
 
       case "profile":
         return (
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground">Profile Settings</h1>
-              <p className="text-muted-foreground mt-1">Manage your personal information</p>
-            </div>
-
-            <Card className="bg-card border-border">
-              <CardContent className="p-6">
-                <div className="space-y-8">
-                  {/* Avatar Upload */}
-                  <div className="flex flex-col sm:flex-row items-center gap-6">
-                    <div className="relative group">
-                      <Avatar className="w-24 h-24 border-2 border-border">
-                        <AvatarImage src={profileImage || undefined} alt="Profile" />
-                        <AvatarFallback className="bg-primary/10 text-primary text-2xl">
-                          {user?.username?.charAt(0).toUpperCase() || "U"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                      >
-                        <Camera className="w-6 h-6 text-white" />
-                      </button>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        className="hidden"
-                      />
-                    </div>
-                    <div>
-                      <h3 className="font-medium text-foreground">Profile Picture</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Click on the avatar to upload a new image
-                      </p>
-                    </div>
+          <div className="space-y-6 animate-fade-in">
+            <div className="relative">
+              <div className="absolute -inset-1 bg-gradient-to-r from-[#dc2626]/20 to-transparent rounded-2xl blur-xl" />
+              <div className="relative bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-[#1a1a1a] rounded-2xl p-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-[#dc2626]/10">
+                    <User className="w-6 h-6 text-[#dc2626]" />
                   </div>
-
-                  {/* Form Fields */}
-                  <div className="grid gap-6 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="fullName" className="text-foreground">Full Name</Label>
-                      <div className="relative">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input
-                          id="fullName"
-                          value={profileForm.fullName}
-                          onChange={(e) =>
-                            setProfileForm({ ...profileForm, fullName: e.target.value })
-                          }
-                          className="pl-10 bg-secondary border-border focus:border-primary"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="email" className="text-foreground">Email Address</Label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input
-                          id="email"
-                          value={profileForm.email}
-                          readOnly
-                          className="pl-10 bg-secondary/50 border-border text-muted-foreground cursor-not-allowed"
-                        />
-                      </div>
-                      <p className="text-xs text-muted-foreground">Email cannot be changed</p>
-                    </div>
-
-                    <div className="space-y-2 sm:col-span-2">
-                      <Label htmlFor="phone" className="text-foreground">Phone Number</Label>
-                      <div className="relative">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input
-                          id="phone"
-                          value={profileForm.phone}
-                          onChange={(e) =>
-                            setProfileForm({ ...profileForm, phone: e.target.value })
-                          }
-                          className="pl-10 bg-secondary border-border focus:border-primary"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Save Button */}
-                  <div className="flex items-center gap-4">
-                    <Button
-                      onClick={handleSaveProfile}
-                      disabled={isSaving}
-                      className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                    >
-                      {isSaving ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <Save className="w-4 h-4 mr-2" />
-                          Save Changes
-                        </>
-                      )}
-                    </Button>
-                    {saveSuccess && (
-                      <span className="text-green-500 text-sm flex items-center gap-1">
-                        <CheckCircle2 className="w-4 h-4" />
-                        Changes saved successfully
-                      </span>
-                    )}
+                  <div>
+                    <h1 className="text-3xl font-bold text-white">Profile Settings</h1>
+                    <p className="text-white/60 mt-1">Manage your personal information</p>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
+
+            <div className="relative group">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-[#dc2626]/20 to-transparent rounded-2xl blur opacity-0 group-hover:opacity-100 transition duration-500" />
+              <Card className="relative bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-[#1a1a1a]">
+                <CardContent className="p-8">
+                  <div className="space-y-8">
+                    {/* Enhanced Avatar Upload */}
+                    <div className="flex flex-col sm:flex-row items-center gap-6 pb-6 border-b border-[#1a1a1a]">
+                      <div className="relative group/avatar">
+                        <div className="absolute -inset-1 bg-gradient-to-r from-[#dc2626] to-[#ef4444] rounded-full blur opacity-0 group-hover/avatar:opacity-75 transition duration-500" />
+                        <Avatar className="relative w-28 h-28 border-4 border-[#1a1a1a] group-hover/avatar:border-[#dc2626]/50 transition-colors">
+                          <AvatarImage src={profileImage || undefined} alt="Profile" />
+                          <AvatarFallback className="bg-[#dc2626]/20 text-[#dc2626] text-3xl font-bold">
+                            {user?.username?.charAt(0).toUpperCase() || "U"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <button
+                          onClick={() => fileInputRef.current?.click()}
+                          className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm rounded-full opacity-0 group-hover/avatar:opacity-100 transition-opacity cursor-pointer"
+                        >
+                          <Camera className="w-8 h-8 text-white" />
+                        </button>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          className="hidden"
+                        />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-white text-lg mb-1">Profile Picture</h3>
+                        <p className="text-sm text-white/60 mb-3">
+                          Click on the avatar to upload a new image
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-white/50">Max size: 5MB</span>
+                          <span className="text-white/30">•</span>
+                          <span className="text-xs text-white/50">Formats: JPG, PNG</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Enhanced Form Fields */}
+                    <div className="grid gap-6 sm:grid-cols-2">
+                      <div className="space-y-2 group/input">
+                        <Label htmlFor="fullName" className="text-white font-medium">Full Name</Label>
+                        <div className="relative">
+                          <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40 group-focus-within/input:text-[#dc2626] transition-colors" />
+                          <Input
+                            id="fullName"
+                            value={profileForm.fullName}
+                            onChange={(e) =>
+                              setProfileForm({ ...profileForm, fullName: e.target.value })
+                            }
+                            className="pl-11 bg-[#0a0a0a] border-[#1a1a1a] text-white focus:border-[#dc2626] focus:ring-2 focus:ring-[#dc2626]/20 transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 group/input">
+                        <Label htmlFor="email" className="text-white font-medium">Email Address</Label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+                          <Input
+                            id="email"
+                            value={profileForm.email}
+                            readOnly
+                            className="pl-11 bg-[#0a0a0a]/50 border-[#1a1a1a] text-white/50 cursor-not-allowed"
+                          />
+                        </div>
+                        <p className="text-xs text-white/40">Email cannot be changed</p>
+                      </div>
+
+                      <div className="space-y-2 sm:col-span-2 group/input">
+                        <Label htmlFor="phone" className="text-white font-medium">Phone Number</Label>
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40 group-focus-within/input:text-[#dc2626] transition-colors" />
+                          <Input
+                            id="phone"
+                            value={profileForm.phone}
+                            onChange={(e) =>
+                              setProfileForm({ ...profileForm, phone: e.target.value })
+                            }
+                            className="pl-11 bg-[#0a0a0a] border-[#1a1a1a] text-white focus:border-[#dc2626] focus:ring-2 focus:ring-[#dc2626]/20 transition-all"
+                            placeholder="+1 (555) 000-0000"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Enhanced Save Button */}
+                    <div className="flex items-center gap-4 pt-4">
+                      <Button
+                        onClick={handleSaveProfile}
+                        disabled={isSaving}
+                        className="relative bg-gradient-to-r from-[#dc2626] to-[#ef4444] hover:from-[#ef4444] hover:to-[#dc2626] text-white shadow-lg shadow-[#dc2626]/30 hover:shadow-xl hover:shadow-[#dc2626]/50 transition-all overflow-hidden group/btn"
+                      >
+                        <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700" />
+                        {isSaving ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                            Saving Changes...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-4 h-4 mr-2" />
+                            Save Changes
+                          </>
+                        )}
+                      </Button>
+                      {saveSuccess && (
+                        <span className="text-green-400 text-sm flex items-center gap-2 animate-fade-in">
+                          <CheckCircle2 className="w-5 h-5" />
+                          Changes saved successfully!
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         );
 
       case "security":
         return (
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground">Security</h1>
-              <p className="text-muted-foreground mt-1">Manage your account security settings</p>
+          <div className="space-y-6 animate-fade-in">
+            <div className="relative">
+              <div className="absolute -inset-1 bg-gradient-to-r from-[#dc2626]/20 to-transparent rounded-2xl blur-xl" />
+              <div className="relative bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-[#1a1a1a] rounded-2xl p-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-[#dc2626]/10">
+                    <Shield className="w-6 h-6 text-[#dc2626]" />
+                  </div>
+                  <div>
+                    <h1 className="text-3xl font-bold text-white">Security Settings</h1>
+                    <p className="text-white/60 mt-1">Manage your account security</p>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <Card className="bg-card border-border">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Key className="w-5 h-5 text-primary" />
-                  Change Password
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4 max-w-md">
-                  <div className="space-y-2">
-                    <Label htmlFor="currentPassword" className="text-foreground">
-                      Current Password
-                    </Label>
-                    <Input
-                      id="currentPassword"
-                      type="password"
-                      value={securityForm.currentPassword}
-                      onChange={(e) =>
-                        setSecurityForm({ ...securityForm, currentPassword: e.target.value })
-                      }
-                      className="bg-secondary border-border focus:border-primary"
-                    />
-                  </div>
+            {/* Change Password Card */}
+            <div className="relative group">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-[#dc2626]/20 to-transparent rounded-2xl blur opacity-0 group-hover:opacity-100 transition duration-500" />
+              <Card className="relative bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-[#1a1a1a]">
+                <CardHeader className="border-b border-[#1a1a1a]">
+                  <CardTitle className="flex items-center gap-2 text-xl">
+                    <Key className="w-5 h-5 text-[#dc2626]" />
+                    Change Password
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-8">
+                  <div className="space-y-6 max-w-md">
+                    <div className="space-y-2 group/input">
+                      <Label htmlFor="currentPassword" className="text-white font-medium">
+                        Current Password
+                      </Label>
+                      <Input
+                        id="currentPassword"
+                        type="password"
+                        value={securityForm.currentPassword}
+                        onChange={(e) =>
+                          setSecurityForm({ ...securityForm, currentPassword: e.target.value })
+                        }
+                        className="bg-[#0a0a0a] border-[#1a1a1a] text-white focus:border-[#dc2626] focus:ring-2 focus:ring-[#dc2626]/20 transition-all"
+                      />
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="newPassword" className="text-foreground">
-                      New Password
-                    </Label>
-                    <Input
-                      id="newPassword"
-                      type="password"
-                      value={securityForm.newPassword}
-                      onChange={(e) =>
-                        setSecurityForm({ ...securityForm, newPassword: e.target.value })
-                      }
-                      className="bg-secondary border-border focus:border-primary"
-                    />
-                  </div>
+                    <div className="space-y-2 group/input">
+                      <Label htmlFor="newPassword" className="text-white font-medium">
+                        New Password
+                      </Label>
+                      <Input
+                        id="newPassword"
+                        type="password"
+                        value={securityForm.newPassword}
+                        onChange={(e) =>
+                          setSecurityForm({ ...securityForm, newPassword: e.target.value })
+                        }
+                        className="bg-[#0a0a0a] border-[#1a1a1a] text-white focus:border-[#dc2626] focus:ring-2 focus:ring-[#dc2626]/20 transition-all"
+                      />
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="confirmPassword" className="text-foreground">
-                      Confirm New Password
-                    </Label>
-                    <Input
-                      id="confirmPassword"
-                      type="password"
-                      value={securityForm.confirmPassword}
-                      onChange={(e) =>
-                        setSecurityForm({ ...securityForm, confirmPassword: e.target.value })
-                      }
-                      className="bg-secondary border-border focus:border-primary"
-                    />
-                  </div>
+                    <div className="space-y-2 group/input">
+                      <Label htmlFor="confirmPassword" className="text-white font-medium">
+                        Confirm New Password
+                      </Label>
+                      <Input
+                        id="confirmPassword"
+                        type="password"
+                        value={securityForm.confirmPassword}
+                        onChange={(e) =>
+                          setSecurityForm({ ...securityForm, confirmPassword: e.target.value })
+                        }
+                        className="bg-[#0a0a0a] border-[#1a1a1a] text-white focus:border-[#dc2626] focus:ring-2 focus:ring-[#dc2626]/20 transition-all"
+                      />
+                    </div>
 
-                  <div className="flex items-center gap-4">
-                    <Button 
-                      onClick={handleChangePassword}
-                      disabled={isChangingPassword}
-                      className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                    >
-                      {isChangingPassword ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                          Updating...
-                        </>
-                      ) : (
-                        "Update Password"
-                      )}
-                    </Button>
-                    {passwordSuccess && (
-                      <span className="text-green-500 text-sm flex items-center gap-1">
-                        <CheckCircle2 className="w-4 h-4" />
-                        Password updated successfully
-                      </span>
+                    {passwordError && (
+                      <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm animate-shake">
+                        {passwordError}
+                      </div>
                     )}
-                  </div>
-                  {passwordError && (
-                    <p className="text-red-500 text-sm mt-2">{passwordError}</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
 
-            <Card className="bg-card border-border">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Shield className="w-5 h-5 text-primary" />
-                  Two-Factor Authentication
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-foreground font-medium">2FA Status</p>
-                    <p className="text-sm text-muted-foreground">
-                      Add an extra layer of security to your account
-                    </p>
+                    <div className="flex items-center gap-4 pt-2">
+                      <Button 
+                        onClick={handleChangePassword}
+                        disabled={isChangingPassword}
+                        className="relative bg-gradient-to-r from-[#dc2626] to-[#ef4444] hover:from-[#ef4444] hover:to-[#dc2626] text-white shadow-lg shadow-[#dc2626]/30 hover:shadow-xl hover:shadow-[#dc2626]/50 transition-all overflow-hidden group/btn"
+                      >
+                        <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700" />
+                        {isChangingPassword ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                            Updating...
+                          </>
+                        ) : (
+                          "Update Password"
+                        )}
+                      </Button>
+                      {passwordSuccess && (
+                        <span className="text-green-400 text-sm flex items-center gap-2 animate-fade-in">
+                          <CheckCircle2 className="w-5 h-5" />
+                          Password updated!
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <Badge className="bg-yellow-500/20 text-yellow-400 border-0">Not Enabled</Badge>
-                </div>
-                <Button
-                  variant="outline"
-                  className="mt-4 bg-transparent border-border hover:bg-secondary hover:text-foreground"
-                >
-                  Enable 2FA
-                </Button>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* 2FA Card */}
+            <div className="relative group">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-yellow-500/20 to-transparent rounded-2xl blur opacity-0 group-hover:opacity-100 transition duration-500" />
+              <Card className="relative bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-[#1a1a1a]">
+                <CardHeader className="border-b border-[#1a1a1a]">
+                  <CardTitle className="flex items-center gap-2 text-xl">
+                    <Shield className="w-5 h-5 text-[#dc2626]" />
+                    Two-Factor Authentication
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-8">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-white font-semibold text-lg mb-1">2FA Status</p>
+                      <p className="text-sm text-white/60">
+                        Add an extra layer of security to your account
+                      </p>
+                    </div>
+                    <Badge className="bg-yellow-500/20 text-yellow-400 border-0 px-4 py-2">
+                      Not Enabled
+                    </Badge>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="mt-6 bg-transparent border-[#1a1a1a] hover:bg-[#dc2626]/10 hover:border-[#dc2626] text-white transition-all"
+                  >
+                    <Shield className="w-4 h-4 mr-2" />
+                    Enable 2FA
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         );
     }
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#0a0a0a] relative overflow-hidden">
+      {/* Animated Background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#dc2626]/5 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl animate-pulse delay-1000" />
+      </div>
+
       <Header />
 
-      <main className="pt-20 pb-16">
+      <main className="relative pt-20 pb-32 lg:pb-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex gap-8">
-            {/* Desktop Sidebar */}
-            <aside className="hidden lg:block w-64 shrink-0">
+            {/* Enhanced Desktop Sidebar */}
+            <aside className="hidden lg:block w-72 shrink-0">
               <div className="sticky top-24">
-                <Card className="bg-card border-border">
-                  <CardContent className="p-6">
-                    {/* Profile Info */}
-                    <div className="flex flex-col items-center text-center mb-6 pb-6 border-b border-border">
-                      <Avatar className="w-20 h-20 mb-3 border-2 border-border">
-                        <AvatarImage src={profileImage || undefined} alt="Profile" />
-                        <AvatarFallback className="bg-primary/10 text-primary text-xl">
-                          {user?.username?.charAt(0).toUpperCase() || "U"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <h3 className="font-semibold text-foreground">{user?.username || "User"}</h3>
-                      <p className="text-sm text-muted-foreground">{user?.email}</p>
-                    </div>
-
-                    {/* Navigation */}
-                    <nav className="space-y-1">
-                      {navItems.map((item) => (
-                        <button
-                          key={item.id}
-                          onClick={() => setActiveTab(item.id)}
-                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                            activeTab === item.id
-                              ? "bg-primary/10 text-primary"
-                              : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                          }`}
-                        >
-                          <item.icon className="w-5 h-5" />
-                          {item.label}
-                        </button>
-                      ))}
-
-                      <div className="pt-4 mt-4 border-t border-border">
-                        <button
-                          onClick={handleSignOut}
-                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-500 hover:bg-red-500/10 transition-all"
-                        >
-                          <LogOut className="w-5 h-5" />
-                          Logout
-                        </button>
+                <div className="relative group">
+                  <div className="absolute -inset-0.5 bg-gradient-to-r from-[#dc2626]/20 to-transparent rounded-2xl blur opacity-0 group-hover:opacity-100 transition duration-500" />
+                  <Card className="relative bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-[#1a1a1a]">
+                    <CardContent className="p-6">
+                      {/* Enhanced Profile Info */}
+                      <div className="flex flex-col items-center text-center mb-6 pb-6 border-b border-[#1a1a1a]">
+                        <div className="relative group/avatar mb-4">
+                          <div className="absolute -inset-1 bg-gradient-to-r from-[#dc2626] to-[#ef4444] rounded-full blur opacity-75 group-hover/avatar:opacity-100 transition-opacity" />
+                          <Avatar className="relative w-24 h-24 border-4 border-[#1a1a1a] ring-2 ring-[#dc2626]/20">
+                            <AvatarImage src={profileImage || undefined} alt="Profile" />
+                            <AvatarFallback className="bg-[#dc2626]/20 text-[#dc2626] text-2xl font-bold">
+                              {user?.username?.charAt(0).toUpperCase() || "U"}
+                            </AvatarFallback>
+                          </Avatar>
+                        </div>
+                        <h3 className="font-bold text-white text-lg mb-1">{user?.username || "User"}</h3>
+                        <p className="text-sm text-white/60 break-all">{user?.email}</p>
+                        <div className="mt-3 px-3 py-1.5 bg-[#dc2626]/10 rounded-full">
+                          <span className="text-xs text-[#dc2626] font-semibold">Premium Member</span>
+                        </div>
                       </div>
-                    </nav>
-                  </CardContent>
-                </Card>
+
+                      {/* Enhanced Navigation */}
+                      <nav className="space-y-1.5">
+                        {navItems.map((item) => (
+                          <button
+                            key={item.id}
+                            onClick={() => setActiveTab(item.id)}
+                            className={`relative w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all group/nav overflow-hidden ${
+                              activeTab === item.id
+                                ? "bg-[#dc2626]/10 text-[#dc2626]"
+                                : "text-white/60 hover:bg-[#0a0a0a] hover:text-white"
+                            }`}
+                          >
+                            {activeTab === item.id && (
+                              <span className="absolute inset-0 bg-gradient-to-r from-[#dc2626]/20 to-transparent" />
+                            )}
+                            <item.icon className={`w-5 h-5 relative ${activeTab === item.id ? 'group-hover/nav:scale-110' : ''} transition-transform`} />
+                            <span className="relative">{item.label}</span>
+                            {activeTab === item.id && (
+                              <ChevronRight className="w-4 h-4 ml-auto relative" />
+                            )}
+                          </button>
+                        ))}
+
+                        <div className="pt-4 mt-4 border-t border-[#1a1a1a]">
+                          <button
+                            onClick={handleSignOut}
+                            className="relative w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-all group/logout overflow-hidden"
+                          >
+                            <LogOut className="w-5 h-5 group-hover/logout:scale-110 transition-transform" />
+                            Logout
+                          </button>
+                        </div>
+                      </nav>
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
             </aside>
 
-            {/* Mobile Bottom Tab Bar - Fixed at bottom */}
-            <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-md border-t border-border z-40 safe-area-pb">
-              <div className="flex items-center justify-around px-2 py-2">
+            {/* Enhanced Mobile Bottom Tab Bar */}
+            <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-[#111111]/95 backdrop-blur-xl border-t border-[#1a1a1a] z-40 safe-area-pb">
+              <div className="flex items-center justify-around px-2 py-3">
                 {navItems.map((item) => (
                   <button
                     key={item.id}
                     onClick={() => setActiveTab(item.id)}
-                    className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all min-w-0 flex-1 active:scale-95 ${
+                    className={`flex flex-col items-center gap-1.5 px-3 py-2 rounded-xl transition-all min-w-0 flex-1 active:scale-95 ${
                       activeTab === item.id
-                        ? "text-primary"
-                        : "text-muted-foreground"
+                        ? "text-[#dc2626]"
+                        : "text-white/60"
                     }`}
                   >
-                    <div className={`p-2 rounded-xl transition-colors ${
-                      activeTab === item.id ? "bg-primary/10" : ""
+                    <div className={`p-2 rounded-xl transition-all ${
+                      activeTab === item.id ? "bg-[#dc2626]/10 scale-110" : ""
                     }`}>
                       <item.icon className="w-5 h-5" />
                     </div>
-                    <span className="text-[10px] font-medium truncate">{item.label.split(' ')[0]}</span>
+                    <span className="text-[10px] font-semibold truncate">{item.label.split(' ')[0]}</span>
                   </button>
                 ))}
                 <button
                   onClick={handleSignOut}
-                  className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all min-w-0 flex-1 text-red-500 active:scale-95"
+                  className="flex flex-col items-center gap-1.5 px-3 py-2 rounded-xl transition-all min-w-0 flex-1 text-red-400 active:scale-95"
                 >
                   <div className="p-2 rounded-xl">
                     <LogOut className="w-5 h-5" />
                   </div>
-                  <span className="text-[10px] font-medium">Logout</span>
+                  <span className="text-[10px] font-semibold">Logout</span>
                 </button>
               </div>
             </div>
@@ -891,59 +1072,61 @@ export default function AccountPage() {
 
       <Footer />
 
-      {/* Order Details Modal */}
+      {/* Enhanced Order Details Modal */}
       <Dialog open={orderModalOpen} onOpenChange={setOrderModalOpen}>
-        <DialogContent className="bg-card border-border max-w-lg p-0 overflow-hidden mx-4 sm:mx-auto rounded-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-gradient-to-br from-[#111111] to-[#0a0a0a] border-2 border-[#1a1a1a] max-w-lg p-0 overflow-hidden mx-4 sm:mx-auto rounded-2xl max-h-[90vh] overflow-y-auto">
           {selectedOrder && (
             <>
-              {/* Header with gradient */}
-              <div className="relative bg-gradient-to-br from-primary/20 via-primary/10 to-transparent p-6 pb-8">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl" />
+              {/* Enhanced Header with gradient */}
+              <div className="relative bg-gradient-to-br from-[#dc2626]/20 via-[#dc2626]/10 to-transparent p-8 pb-10">
+                <div className="absolute top-0 right-0 w-40 h-40 bg-[#dc2626]/10 rounded-full blur-3xl" />
                 <DialogHeader className="relative">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="p-2 rounded-xl bg-primary/20 backdrop-blur-sm">
-                      <Receipt className="w-5 h-5 text-primary" />
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-3 rounded-xl bg-[#dc2626]/20 backdrop-blur-sm ring-2 ring-[#dc2626]/30">
+                      <Receipt className="w-6 h-6 text-[#dc2626]" />
                     </div>
-                    <DialogTitle className="text-xl font-bold text-foreground">
+                    <DialogTitle className="text-2xl font-bold text-white">
                       Order Details
                     </DialogTitle>
                   </div>
-                  <p className="text-sm text-muted-foreground font-mono">{selectedOrder.order_number}</p>
+                  <p className="text-sm text-white/70 font-mono bg-black/30 px-3 py-1.5 rounded-lg inline-block">
+                    {selectedOrder.order_number}
+                  </p>
                 </DialogHeader>
               </div>
 
               {/* Content */}
-              <div className="p-4 sm:p-6 pt-0 -mt-4">
+              <div className="p-6 -mt-6">
                 {/* Product Card */}
-                <div className="bg-secondary/50 rounded-xl p-4 mb-4 sm:mb-6 border border-border">
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                    <div className="flex items-center gap-3 sm:gap-4">
-                      <div className="p-2.5 sm:p-3 rounded-xl bg-primary/10 flex-shrink-0">
-                        <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+                <div className="bg-[#0a0a0a] rounded-2xl p-6 mb-6 border border-[#1a1a1a] hover:border-[#dc2626]/30 transition-colors">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 rounded-xl bg-[#dc2626]/10 flex-shrink-0">
+                        <Sparkles className="w-7 h-7 text-[#dc2626]" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-foreground text-base sm:text-lg">
+                        <h3 className="font-bold text-white text-lg mb-1">
                           {selectedOrder.product}
                         </h3>
-                        <p className="text-sm text-muted-foreground">{selectedOrder.duration}</p>
+                        <p className="text-sm text-white/60">{selectedOrder.duration}</p>
                       </div>
                     </div>
-                    <div className="text-left sm:text-right pl-12 sm:pl-0">
-                      <p className="text-xl sm:text-2xl font-bold text-primary">${selectedOrder.total.toFixed(2)}</p>
+                    <div className="text-left sm:text-right pl-14 sm:pl-0">
+                      <p className="text-3xl font-bold text-[#dc2626]">${selectedOrder.total.toFixed(2)}</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Order Info Grid */}
-                <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
-                  <div className="bg-secondary/30 rounded-xl p-3 sm:p-4 border border-border/50">
-                    <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
-                      <Calendar className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div className="bg-[#0a0a0a]/50 rounded-xl p-4 border border-[#1a1a1a] hover:border-[#dc2626]/30 transition-colors">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Calendar className="w-4 h-4 text-[#dc2626]" />
+                      <span className="text-xs text-white/50 uppercase tracking-wider font-semibold">
                         Date
                       </span>
                     </div>
-                    <p className="font-medium text-foreground text-sm sm:text-base">
+                    <p className="font-semibold text-white">
                       {new Date(selectedOrder.date).toLocaleDateString("en-US", {
                         year: "numeric",
                         month: "short",
@@ -952,25 +1135,25 @@ export default function AccountPage() {
                     </p>
                   </div>
 
-                  <div className="bg-secondary/30 rounded-xl p-3 sm:p-4 border border-border/50">
-                    <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
-                      <CreditCard className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">
+                  <div className="bg-[#0a0a0a]/50 rounded-xl p-4 border border-[#1a1a1a] hover:border-[#dc2626]/30 transition-colors">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CreditCard className="w-4 h-4 text-[#dc2626]" />
+                      <span className="text-xs text-white/50 uppercase tracking-wider font-semibold">
                         Payment
                       </span>
                     </div>
-                    <p className="font-medium text-foreground text-sm sm:text-base">
+                    <p className="font-semibold text-white">
                       {selectedOrder.paymentMethod || "Crypto"}
                     </p>
                   </div>
                 </div>
 
                 {/* Status */}
-                <div className="bg-secondary/30 rounded-lg p-4 mb-6 border border-border/50">
+                <div className="bg-[#0a0a0a]/50 rounded-xl p-4 mb-6 border border-[#1a1a1a]">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Hash className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground uppercase tracking-wider">
+                      <Hash className="w-4 h-4 text-[#dc2626]" />
+                      <span className="text-xs text-white/50 uppercase tracking-wider font-semibold">
                         Status
                       </span>
                     </div>
@@ -980,23 +1163,37 @@ export default function AccountPage() {
 
                 {/* License Key */}
                 {selectedOrder.licenseKey && (
-                  <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-xl p-3 sm:p-4 border border-primary/20">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Key className="w-4 h-4 text-primary" />
-                      <span className="text-[10px] sm:text-xs text-primary uppercase tracking-wider font-medium">
+                  <div className="bg-gradient-to-r from-[#dc2626]/10 to-[#dc2626]/5 rounded-2xl p-5 border border-[#dc2626]/30 mb-6">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Key className="w-5 h-5 text-[#dc2626]" />
+                      <span className="text-xs text-[#dc2626] uppercase tracking-wider font-bold">
                         License Key
                       </span>
                     </div>
-                    <p className="font-mono text-foreground bg-black/30 rounded-lg px-3 py-2.5 text-xs sm:text-sm select-all break-all">
-                      {selectedOrder.licenseKey}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 font-mono text-white bg-black/40 rounded-lg px-4 py-3 text-sm select-all break-all">
+                        {selectedOrder.licenseKey}
+                      </code>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => copyToClipboard(selectedOrder.licenseKey!, 'modal')}
+                        className="flex-shrink-0 hover:bg-[#dc2626]/10"
+                      >
+                        {copiedKey === 'modal' ? (
+                          <CheckCircle2 className="w-5 h-5 text-green-400" />
+                        ) : (
+                          <Copy className="w-5 h-5 text-white/60" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 )}
 
                 {/* Close Button */}
                 <Button
                   onClick={() => setOrderModalOpen(false)}
-                  className="w-full mt-6 bg-primary hover:bg-primary/90 text-primary-foreground"
+                  className="w-full py-6 bg-gradient-to-r from-[#dc2626] to-[#ef4444] hover:from-[#ef4444] hover:to-[#dc2626] text-white font-bold text-lg shadow-lg shadow-[#dc2626]/30 hover:shadow-xl hover:shadow-[#dc2626]/50 transition-all rounded-xl"
                 >
                   Close
                 </Button>
@@ -1005,6 +1202,43 @@ export default function AccountPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <style jsx>{`
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes shake {
+          0%, 100% {
+            transform: translateX(0);
+          }
+          25% {
+            transform: translateX(-5px);
+          }
+          75% {
+            transform: translateX(5px);
+          }
+        }
+
+        .animate-fade-in {
+          animation: fade-in 0.6s ease-out;
+        }
+
+        .animate-shake {
+          animation: shake 0.3s ease-in-out;
+        }
+
+        .delay-1000 {
+          animation-delay: 1000ms;
+        }
+      `}</style>
     </div>
   );
 }

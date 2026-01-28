@@ -19,6 +19,7 @@ import { useRouter } from "next/navigation";
 import { mockProducts } from "@/lib/admin-mock-data";
 import { AuthDropdown } from "@/components/auth-dropdown";
 import { useCart } from "@/lib/cart-context";
+import { CartDropdown } from "@/components/cart-dropdown";
 
 export function Header() {
   const router = useRouter();
@@ -91,7 +92,6 @@ export function Header() {
       href: "https://discord.gg/magmacheats",
       external: true,
     },
-    { icon: Shield, label: "ADMIN", href: "/admin", mobileOnly: true },
   ];
 
   return (
@@ -232,28 +232,9 @@ export function Header() {
 
             {/* Cart & Auth Dropdown */}
             <div className="hidden md:flex items-center gap-3">
-              <Link
-                href="/cart"
-                className="relative p-2 text-white/60 hover:text-white transition-colors"
-              >
-                <ShoppingCart className="w-5 h-5" />
-                {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#dc2626] text-white text-xs font-bold rounded-full flex items-center justify-center">
-                    {cartCount > 9 ? "9+" : cartCount}
-                  </span>
-                )}
-              </Link>
+              <CartDropdown />
               <AuthDropdown />
             </div>
-
-            {/* Admin - Desktop */}
-            <Link
-              href="/mgmt-x9k2m7"
-              className="hidden sm:flex items-center gap-1.5 px-3 py-2 bg-[#dc2626]/10 text-[#dc2626] rounded-lg text-sm font-medium hover:bg-[#dc2626] hover:text-white transition-all duration-300"
-            >
-              <Shield className="w-4 h-4" />
-              Admin
-            </Link>
           </div>
         </div>
       </div>

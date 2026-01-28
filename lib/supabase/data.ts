@@ -336,7 +336,8 @@ export async function getReviews() {
       .order("created_at", { ascending: false });
     
     if (error) {
-      console.error("[Reviews] Database error:", error);
+      console.error("[Reviews] Database error:", error.message || error);
+      // Return empty array if table doesn't exist or other error
       return [];
     }
     

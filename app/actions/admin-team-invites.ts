@@ -3,8 +3,21 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { isResendConfigured, sendEmail } from "@/lib/resend";
+import { getPermissionLabel } from "@/lib/team-permissions";
+import { requirePermission } from "@/lib/admin-auth";
 
-function inviteEmailHTML(params: { name: string; role: string; inviteLink: string }) {
+function inviteEmailHTML(params: {
+  name: string;
+  username: string;
+  role: string;
+  permissions: string[];
+  inviteLink: string;
+}) {
+  const permList =
+    params.permissions.length > 0
+      ? params.permissions.map((id) => getPermissionLabel(id)).join(", ")
+      : "No specific permissions (view-only)";
+
   return `
 <!DOCTYPE html>
 <html>
@@ -17,7 +30,9 @@ function inviteEmailHTML(params: { name: string; role: string; inviteLink: strin
     </div>
     <div style="background:#111;border:1px solid #262626;border-radius:16px;padding:40px;">
       <h2 style="color:#fff;margin:0 0 20px;font-size:20px;">Hi ${params.name},</h2>
-      <p style="color:#a3a3a3;line-height:1.6;margin:0 0 20px;">You've been invited to join the Magma admin team as a <strong style="color:#dc2626;">${params.role}</strong>.</p>
+      <p style="color:#a3a3a3;line-height:1.6;margin:0 0 20px;">You've been invited to join the Magma admin team as <strong style="color:#dc2626;">${params.role}</strong>.</p>
+      <p style="color:#a3a3a3;line-height:1.6;margin:0 0 8px;"><strong style="color:#fff;">Username:</strong> ${params.username || params.name}</p>
+      <p style="color:#a3a3a3;line-height:1.6;margin:0 0 24px;"><strong style="color:#fff;">Access:</strong> ${permList}</p>
       <p style="color:#a3a3a3;line-height:1.6;margin:0 0 30px;">Click the button below to accept and set up your account:</p>
       <div style="text-align:center;margin:30px 0;">
         <a href="${params.inviteLink}" style="display:inline-block;background:linear-gradient(135deg,#dc2626 0%,#ef4444 100%);color:white;text-decoration:none;padding:16px 32px;border-radius:10px;font-weight:600;font-size:16px;">Accept Invitation</a>
@@ -55,8 +70,15 @@ function reminderEmailHTML(params: { name: string; inviteLink: string }) {
 </html>`.trim();
 }
 
-export async function inviteTeamMember(data: { email: string; name: string; role: string }) {
+export async function inviteTeamMember(data: {
+  email: string;
+  username: string;
+  name: string;
+  role: string;
+  permissions: string[];
+}) {
   try {
+    await requirePermission("manage_team");
     if (!isResendConfigured()) {
       return { success: false, error: "Email not configured. Add RESEND_API_KEY to your .env file." };
     }
@@ -64,6 +86,7 @@ export async function inviteTeamMember(data: { email: string; name: string; role
     const supabase = createAdminClient();
 
     const email = data.email.trim();
+    const username = (data.username || data.name || email).trim().replace(/\s+/g, "_");
     const { data: existing } = await supabase
       .from("team_members")
       .select("id")
@@ -80,16 +103,19 @@ export async function inviteTeamMember(data: { email: string; name: string; role
     const inviteToken = crypto.randomUUID();
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
+    const permissions = Array.isArray(data.permissions) ? data.permissions : [];
 
     const { data: teamMember, error: insertError } = await supabase
       .from("team_members")
       .insert({
         email,
+        username,
         name: data.name.trim(),
         role: data.role,
         status: "pending",
         invite_token: inviteToken,
         invite_expires_at: expiresAt.toISOString(),
+        permissions,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -112,7 +138,13 @@ export async function inviteTeamMember(data: { email: string; name: string; role
     const emailResult = await sendEmail({
       to: email,
       subject: "You're invited to join Magma Admin Team",
-      html: inviteEmailHTML({ name: data.name, role: data.role, inviteLink }),
+      html: inviteEmailHTML({
+        name: data.name.trim(),
+        username,
+        role: data.role,
+        permissions,
+        inviteLink,
+      }),
     });
 
     if (!emailResult.success) {
@@ -123,6 +155,8 @@ export async function inviteTeamMember(data: { email: string; name: string; role
     revalidatePath("/mgmt-x9k2m7/team");
     return { success: true, teamMember };
   } catch (e: any) {
+    if (e?.message === "Unauthorized" || /Forbidden|insufficient permissions/i.test(e?.message ?? ""))
+      return { success: false, error: "You don't have permission to do this." };
     console.error("[Admin] Invite team member error:", e);
     return { success: false, error: e?.message || "Failed to invite team member." };
   }
@@ -130,6 +164,7 @@ export async function inviteTeamMember(data: { email: string; name: string; role
 
 export async function resendInvite(teamMemberId: string) {
   try {
+    await requirePermission("manage_team");
     if (!isResendConfigured()) {
       return { success: false, error: "Email not configured. Add RESEND_API_KEY to your .env file." };
     }
@@ -175,6 +210,8 @@ export async function resendInvite(teamMemberId: string) {
     revalidatePath("/mgmt-x9k2m7/team");
     return { success: true };
   } catch (e: any) {
+    if (e?.message === "Unauthorized" || /Forbidden|insufficient permissions/i.test(e?.message ?? ""))
+      return { success: false, error: "You don't have permission to do this." };
     console.error("[Admin] Resend invite error:", e);
     return { success: false, error: e?.message || "Failed to resend invite." };
   }

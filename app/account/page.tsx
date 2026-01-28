@@ -2,7 +2,7 @@
 
 import React from "react"
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
@@ -55,10 +55,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
-type TabType = "dashboard" | "orders" | "profile" | "addresses" | "security";
+type TabType = "dashboard" | "orders" | "delivered" | "profile" | "addresses" | "security";
 
 interface Order {
   id: string;
+  order_number: string;
   date: string;
   status: string;
   total: number;
@@ -68,59 +69,15 @@ interface Order {
   licenseKey?: string;
 }
 
-// Mock order data
-const mockOrders: Order[] = [
-  {
-    id: "ORD-2026-001",
-    date: "2026-01-19",
-    status: "completed",
-    total: 29.99,
-    product: "Fortnite Cheat",
-    duration: "1 Month",
-    paymentMethod: "Bitcoin",
-    licenseKey: "MAGMA-FN-X8K2-9P4L-7M3Q",
-  },
-  {
-    id: "ORD-2026-002",
-    date: "2026-01-17",
-    status: "in_progress",
-    total: 49.99,
-    product: "Apex Legends Cheat",
-    duration: "1 Month",
-    paymentMethod: "Ethereum",
-    licenseKey: "Processing...",
-  },
-  {
-    id: "ORD-2026-003",
-    date: "2026-01-14",
-    status: "completed",
-    total: 79.99,
-    product: "COD BO6 Cheat",
-    duration: "3 Months",
-    paymentMethod: "Litecoin",
-    licenseKey: "MAGMA-COD-Y2N5-8R6W-4K1T",
-  },
-  {
-    id: "ORD-2026-004",
-    date: "2026-01-09",
-    status: "completed",
-    total: 24.99,
-    product: "Rust Cheat",
-    duration: "1 Week",
-    paymentMethod: "Bitcoin",
-    licenseKey: "MAGMA-RST-Z3P7-6V2X-9J8M",
-  },
-  {
-    id: "ORD-2026-005",
-    date: "2026-01-04",
-    status: "completed",
-    total: 149.99,
-    product: "HWID Spoofer",
-    duration: "Lifetime",
-    paymentMethod: "Bitcoin",
-    licenseKey: "MAGMA-HWD-A1B2-C3D4-E5F6",
-  },
-];
+interface License {
+  id: string;
+  license_key: string;
+  product_name: string;
+  status: string;
+  expires_at: string | null;
+  created_at: string;
+  order_id: string | null;
+}
 
 // Mock addresses
 const mockAddresses = [
@@ -149,7 +106,7 @@ const mockAddresses = [
 ];
 
 export default function AccountPage() {
-  const { user, signOut, isLoading, updateProfile, updatePassword } = useAuth();
+  const { user, signOut, isLoading, updateProfile, changePassword } = useAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>("dashboard");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -158,13 +115,51 @@ export default function AccountPage() {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderModalOpen, setOrderModalOpen] = useState(false);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [licenses, setLicenses] = useState<License[]>([]);
+  const [ordersLicensesLoading, setOrdersLicensesLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (user) {
+      setProfileForm({ fullName: user.username ?? "", email: user.email ?? "", phone: user.phone ?? "" });
+      setProfileImage(user.avatarUrl ?? null);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    setOrdersLicensesLoading(true);
+    fetch("/api/store-auth/orders-licenses")
+      .then((r) => r.json())
+      .then((data) => {
+        const rawOrders = data.orders ?? [];
+        const rawLicenses = data.licenses ?? [];
+        setLicenses(rawLicenses);
+        const byOrderId = new Map<string, License>();
+        rawLicenses.forEach((l: License) => { if (l.order_id) byOrderId.set(l.order_id, l); });
+        setOrders(
+          rawOrders.map((o: { id: string; order_number: string; product_name: string; duration: string; amount: number; status: string; created_at: string }) => ({
+            id: o.id,
+            order_number: o.order_number,
+            date: o.created_at,
+            status: o.status,
+            total: o.amount,
+            product: o.product_name,
+            duration: o.duration,
+            licenseKey: byOrderId.get(o.id)?.license_key,
+          }))
+        );
+      })
+      .catch(() => {})
+      .finally(() => setOrdersLicensesLoading(false));
+  }, [user]);
 
   // Profile form state
   const [profileForm, setProfileForm] = useState({
-    fullName: user?.username || "",
-    email: user?.email || "",
-    phone: user?.phone || "",
+    fullName: "",
+    email: "",
+    phone: "",
   });
 
   // Security form state
@@ -176,11 +171,22 @@ export default function AccountPage() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [redirecting, setRedirecting] = useState(false);
 
-  // Redirect to home if not logged in
-  if (!isLoading && !user) {
-    router.push("/");
-    return null;
+  useEffect(() => {
+    if (isLoading) return;
+    if (!user) {
+      setRedirecting(true);
+      router.replace("/");
+    }
+  }, [isLoading, user]);
+
+  if (redirecting || (!isLoading && !user)) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
   }
 
   if (isLoading) {
@@ -251,9 +257,7 @@ export default function AccountPage() {
 
     setIsChangingPassword(true);
 
-    const result = await updatePassword({
-      password: securityForm.newPassword,
-    });
+    const result = await changePassword(securityForm.currentPassword, securityForm.newPassword);
 
     setIsChangingPassword(false);
 
@@ -275,11 +279,19 @@ export default function AccountPage() {
             Completed
           </Badge>
         );
-      case "in_progress":
+      case "pending":
+      case "paid":
         return (
           <Badge className="bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 border-0">
             <Clock className="w-3 h-3 mr-1" />
             In Progress
+          </Badge>
+        );
+      case "failed":
+      case "refunded":
+        return (
+          <Badge className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border-0">
+            {status}
           </Badge>
         );
       default:
@@ -292,14 +304,16 @@ export default function AccountPage() {
   };
 
   const stats = {
-    totalOrders: mockOrders.length,
-    inProgress: mockOrders.filter((o) => o.status === "in_progress").length,
-    completed: mockOrders.filter((o) => o.status === "completed").length,
+    totalOrders: orders.length,
+    inProgress: orders.filter((o) => o.status === "pending" || o.status === "paid").length,
+    completed: orders.filter((o) => o.status === "completed").length,
+    deliveredCount: licenses.length,
   };
 
   const navItems = [
     { id: "dashboard" as TabType, icon: LayoutDashboard, label: "Dashboard" },
     { id: "orders" as TabType, icon: ShoppingBag, label: "Orders" },
+    { id: "delivered" as TabType, icon: Package, label: "Delivered goods" },
     { id: "profile" as TabType, icon: User, label: "Profile Settings" },
     { id: "addresses" as TabType, icon: MapPin, label: "Addresses" },
     { id: "security" as TabType, icon: Shield, label: "Security" },
@@ -321,7 +335,7 @@ export default function AccountPage() {
             </div>
 
             {/* Stat Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <Card className="bg-card border-border hover:border-primary/50 transition-colors">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-4">
@@ -363,6 +377,20 @@ export default function AccountPage() {
                   </div>
                 </CardContent>
               </Card>
+
+              <Card className="bg-card border-border hover:border-primary/50 transition-colors">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-xl bg-primary/10">
+                      <Key className="w-6 h-6 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Delivered goods</p>
+                      <p className="text-2xl font-bold text-foreground">{stats.deliveredCount}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
             {/* Recent Orders */}
@@ -380,30 +408,39 @@ export default function AccountPage() {
                 </Button>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {mockOrders.slice(0, 3).map((order) => (
-                    <div
-                      key={order.id}
-                      className="flex items-center justify-between p-4 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="p-2 rounded-lg bg-primary/10">
-                          <Package className="w-5 h-5 text-primary" />
+                {ordersLicensesLoading ? (
+                  <div className="py-8 flex justify-center">
+                    <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {orders.slice(0, 3).map((order) => (
+                      <div
+                        key={order.id}
+                        className="flex items-center justify-between p-4 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="p-2 rounded-lg bg-primary/10">
+                            <Package className="w-5 h-5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground">{order.product}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {order.order_number} • {order.duration}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium text-foreground">{order.product}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {order.id} • {order.duration}
-                          </p>
+                        <div className="text-right">
+                          {getStatusBadge(order.status)}
+                          <p className="text-sm text-muted-foreground mt-1">${order.total.toFixed(2)}</p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        {getStatusBadge(order.status)}
-                        <p className="text-sm text-muted-foreground mt-1">${order.total}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                    {!ordersLicensesLoading && orders.length === 0 && (
+                      <p className="py-6 text-center text-muted-foreground text-sm">No orders yet</p>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -419,53 +456,124 @@ export default function AccountPage() {
 
             <Card className="bg-card border-border">
               <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="border-border hover:bg-transparent">
-                        <TableHead className="text-muted-foreground">Order ID</TableHead>
-                        <TableHead className="text-muted-foreground">Product</TableHead>
-                        <TableHead className="text-muted-foreground">Date</TableHead>
-                        <TableHead className="text-muted-foreground">Status</TableHead>
-                        <TableHead className="text-muted-foreground">Total</TableHead>
-                        <TableHead className="text-muted-foreground text-right">Action</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {mockOrders.map((order) => (
-                        <TableRow key={order.id} className="border-border hover:bg-secondary/50">
-                          <TableCell className="font-mono text-foreground">{order.id}</TableCell>
-                          <TableCell>
-                            <div>
-                              <p className="font-medium text-foreground">{order.product}</p>
-                              <p className="text-sm text-muted-foreground">{order.duration}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {new Date(order.date).toLocaleDateString("en-US", {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
-                            })}
-                          </TableCell>
-                          <TableCell>{getStatusBadge(order.status)}</TableCell>
-                          <TableCell className="font-medium text-foreground">${order.total}</TableCell>
-<TableCell className="text-right">
-                                            <Button
-                                              variant="ghost"
-                                              size="sm"
-                                              onClick={() => handleViewOrder(order)}
-                                              className="text-primary hover:text-primary/80 hover:bg-primary/10"
-                                            >
-                                              <Eye className="w-4 h-4 mr-1" />
-                                              View
-                                            </Button>
-                                          </TableCell>
+                {ordersLicensesLoading ? (
+                  <div className="py-12 flex justify-center">
+                    <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-border hover:bg-transparent">
+                          <TableHead className="text-muted-foreground">Order ID</TableHead>
+                          <TableHead className="text-muted-foreground">Product</TableHead>
+                          <TableHead className="text-muted-foreground">Date</TableHead>
+                          <TableHead className="text-muted-foreground">Status</TableHead>
+                          <TableHead className="text-muted-foreground">Total</TableHead>
+                          <TableHead className="text-muted-foreground text-right">Action</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                      </TableHeader>
+                      <TableBody>
+                        {orders.map((order) => (
+                          <TableRow key={order.id} className="border-border hover:bg-secondary/50">
+                            <TableCell className="font-mono text-foreground">{order.order_number}</TableCell>
+                            <TableCell>
+                              <div>
+                                <p className="font-medium text-foreground">{order.product}</p>
+                                <p className="text-sm text-muted-foreground">{order.duration}</p>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {new Date(order.date).toLocaleDateString("en-US", {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                              })}
+                            </TableCell>
+                            <TableCell>{getStatusBadge(order.status)}</TableCell>
+                            <TableCell className="font-medium text-foreground">${order.total.toFixed(2)}</TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleViewOrder(order)}
+                                className="text-primary hover:text-primary/80 hover:bg-primary/10"
+                              >
+                                <Eye className="w-4 h-4 mr-1" />
+                                View
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {orders.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
+                              No orders yet
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        );
+
+      case "delivered":
+        return (
+          <div className="space-y-6">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-foreground">Delivered goods</h1>
+              <p className="text-muted-foreground mt-1">
+                Licenses for purchases under your account email. Buy with this email to see them here.
+              </p>
+            </div>
+
+            <Card className="bg-card border-border">
+              <CardContent className="p-0">
+                {ordersLicensesLoading ? (
+                  <div className="py-12 flex justify-center">
+                    <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-border hover:bg-transparent">
+                          <TableHead className="text-muted-foreground">Product</TableHead>
+                          <TableHead className="text-muted-foreground">License key</TableHead>
+                          <TableHead className="text-muted-foreground">Status</TableHead>
+                          <TableHead className="text-muted-foreground">Expires</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {licenses.map((l) => (
+                          <TableRow key={l.id} className="border-border hover:bg-secondary/50">
+                            <TableCell className="font-medium text-foreground">{l.product_name}</TableCell>
+                            <TableCell className="font-mono text-sm text-foreground">{l.license_key}</TableCell>
+                            <TableCell>
+                              <Badge className={l.status === "active" ? "bg-green-500/20 text-green-400 border-0" : "bg-muted text-muted-foreground border-0"}>
+                                {l.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {l.expires_at ? new Date(l.expires_at).toLocaleDateString("en-US") : "—"}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {licenses.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={4} className="py-12 text-center text-muted-foreground">
+                              No delivered licenses yet. Orders completed under your account email will appear here.
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -891,7 +999,7 @@ export default function AccountPage() {
                       Order Details
                     </DialogTitle>
                   </div>
-                  <p className="text-sm text-muted-foreground font-mono">{selectedOrder.id}</p>
+                  <p className="text-sm text-muted-foreground font-mono">{selectedOrder.order_number}</p>
                 </DialogHeader>
               </div>
 
@@ -912,7 +1020,7 @@ export default function AccountPage() {
                       </div>
                     </div>
                     <div className="text-left sm:text-right pl-12 sm:pl-0">
-                      <p className="text-xl sm:text-2xl font-bold text-primary">${selectedOrder.total}</p>
+                      <p className="text-xl sm:text-2xl font-bold text-primary">${selectedOrder.total.toFixed(2)}</p>
                     </div>
                   </div>
                 </div>
@@ -957,17 +1065,7 @@ export default function AccountPage() {
                         Status
                       </span>
                     </div>
-                    {selectedOrder.status === "completed" ? (
-                      <div className="flex items-center gap-2 bg-green-500/20 text-green-400 px-3 py-1.5 rounded-full">
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span className="text-sm font-medium">Completed</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 bg-yellow-500/20 text-yellow-400 px-3 py-1.5 rounded-full">
-                        <Clock className="w-4 h-4" />
-                        <span className="text-sm font-medium">In Progress</span>
-                      </div>
-                    )}
+                    {getStatusBadge(selectedOrder.status)}
                   </div>
                 </div>
 

@@ -1,8 +1,8 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 
-interface User {
+export interface User {
   id: string;
   email: string;
   username: string;
@@ -29,175 +29,94 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Simple in-memory user store (in production, this would be a database)
-const users: Map<string, { id: string; email: string; username: string; password: string; avatarUrl?: string; phone?: string; createdAt: Date }> = new Map();
+function parseUser(r: { id: string; email: string; username: string; avatarUrl?: string; phone?: string; createdAt: string }): User {
+  return {
+    id: r.id,
+    email: r.email,
+    username: r.username,
+    avatarUrl: r.avatarUrl,
+    phone: r.phone,
+    createdAt: new Date(r.createdAt),
+  };
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing session
-    const savedUser = localStorage.getItem("magma_user");
-    if (savedUser) {
-      try {
-        const parsedUser = JSON.parse(savedUser);
-        setUser(parsedUser);
-        
-        // Restore user to in-memory store if not present (for password changes to work after refresh)
-        if (!users.has(parsedUser.email.toLowerCase())) {
-          // Get saved password from localStorage or use a default placeholder
-          const savedPassword = localStorage.getItem("magma_user_pw") || "password123";
-          users.set(parsedUser.email.toLowerCase(), {
-            id: parsedUser.id,
-            email: parsedUser.email,
-            username: parsedUser.username,
-            password: savedPassword,
-            avatarUrl: parsedUser.avatarUrl,
-            phone: parsedUser.phone,
-            createdAt: new Date(parsedUser.createdAt),
-          });
-        }
-      } catch {
-        localStorage.removeItem("magma_user");
-      }
-    }
-    setIsLoading(false);
+    let mounted = true;
+    fetch("/api/store-auth/me")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!mounted) return;
+        setUser(data.user ? parseUser(data.user) : null);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setUser(null);
+      })
+      .finally(() => {
+        if (mounted) setIsLoading(false);
+      });
+    return () => { mounted = false; };
   }, []);
 
-  const signIn = async (email: string, password: string, remember: boolean): Promise<{ success: boolean; error?: string }> => {
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    const storedUser = users.get(email.toLowerCase());
-    
-    if (!storedUser) {
-      return { success: false, error: "No account found with this email" };
-    }
-
-    if (storedUser.password !== password) {
-      return { success: false, error: "Incorrect password" };
-    }
-
-    const userData: User = {
-      id: storedUser.id,
-      email: storedUser.email,
-      username: storedUser.username,
-      createdAt: storedUser.createdAt,
-    };
-
-    setUser(userData);
-    
-    if (remember) {
-      localStorage.setItem("magma_user", JSON.stringify(userData));
-      localStorage.setItem("magma_user_pw", password);
-    } else {
-      sessionStorage.setItem("magma_user", JSON.stringify(userData));
-    }
-
+  const signIn = useCallback(async (email: string, password: string, _remember: boolean): Promise<{ success: boolean; error?: string }> => {
+    const res = await fetch("/api/store-auth/signin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { success: false, error: data.error || "Sign in failed" };
+    setUser(parseUser(data.user));
     return { success: true };
-  };
+  }, []);
 
-  const signUp = async (email: string, password: string, username: string): Promise<{ success: boolean; error?: string }> => {
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    if (users.has(email.toLowerCase())) {
-      return { success: false, error: "An account with this email already exists" };
-    }
-
-    // Check if username is taken
-    for (const [, userData] of users) {
-      if (userData.username.toLowerCase() === username.toLowerCase()) {
-        return { success: false, error: "This username is already taken" };
-      }
-    }
-
-    const newUser = {
-      id: `user_${Date.now()}`,
-      email: email.toLowerCase(),
-      username,
-      password,
-      createdAt: new Date(),
-    };
-
-    users.set(email.toLowerCase(), newUser);
-
-    const userData: User = {
-      id: newUser.id,
-      email: newUser.email,
-      username: newUser.username,
-      createdAt: newUser.createdAt,
-    };
-
-    setUser(userData);
-    localStorage.setItem("magma_user", JSON.stringify(userData));
-    localStorage.setItem("magma_user_pw", password);
-
+  const signUp = useCallback(async (email: string, password: string, username: string): Promise<{ success: boolean; error?: string }> => {
+    const res = await fetch("/api/store-auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, username }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { success: false, error: data.error || "Sign up failed" };
+    setUser(parseUser(data.user));
     return { success: true };
-  };
+  }, []);
 
-  const signOut = () => {
+  const signOut = useCallback(() => {
+    fetch("/api/store-auth/signout", { method: "POST" }).catch(() => {});
     setUser(null);
-    localStorage.removeItem("magma_user");
-    localStorage.removeItem("magma_user_pw");
-    sessionStorage.removeItem("magma_user");
-  };
+  }, []);
 
-  const updateProfile = async (updates: ProfileUpdate): Promise<{ success: boolean; error?: string }> => {
-    if (!user) {
-      return { success: false, error: "Not logged in" };
-    }
-
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    const updatedUser: User = {
-      ...user,
-      ...updates,
-    };
-
-    // Update in-memory store
-    const storedUser = users.get(user.email.toLowerCase());
-    if (storedUser) {
-      users.set(user.email.toLowerCase(), {
-        ...storedUser,
-        username: updates.username || storedUser.username,
-        avatarUrl: updates.avatarUrl,
-        phone: updates.phone,
-      });
-    }
-
-    setUser(updatedUser);
-    localStorage.setItem("magma_user", JSON.stringify(updatedUser));
-
+  const updateProfile = useCallback(async (updates: ProfileUpdate): Promise<{ success: boolean; error?: string }> => {
+    if (!user) return { success: false, error: "Not logged in" };
+    const res = await fetch("/api/store-auth/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    });
+    const data = await res.json();
+    if (!res.ok) return { success: false, error: data.error || "Update failed" };
+    setUser(parseUser(data.user));
     return { success: true };
-  };
+  }, [user]);
 
-  const updatePassword = async (updates: {password: string}): Promise<{ success: boolean; error?: string; }> => {
-    if (!user) {
-      return { success: false, error: "Not logged in" };
-    }
-
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    // Update in-memory store
-    const storedUser = users.get(user.email.toLowerCase());
-    if (storedUser) {
-      users.set(user.email.toLowerCase(), {
-        ...storedUser,
-        password: updates.password,
-      });
-    }
-
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string): Promise<{ success: boolean; error?: string }> => {
+    const res = await fetch("/api/store-auth/change-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { success: false, error: data.error || "Password update failed" };
     return { success: true };
-  };
-
-
+  }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, signIn, signUp, signOut, updateProfile, updatePassword }}>
+    <AuthContext.Provider value={{ user, isLoading, signIn, signUp, signOut, updateProfile, changePassword }}>
       {children}
     </AuthContext.Provider>
   );

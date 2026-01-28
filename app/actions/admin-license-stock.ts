@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
+import { requirePermission } from "@/lib/admin-auth";
 
 export async function addLicenseStock(data: {
   product_id: string;
@@ -9,6 +10,7 @@ export async function addLicenseStock(data: {
   license_keys: string[];
 }) {
   try {
+    await requirePermission("stock_keys");
     const supabase = createAdminClient();
     
     // Insert all license keys as "unused" stock
@@ -30,6 +32,8 @@ export async function addLicenseStock(data: {
     revalidatePath("/mgmt-x9k2m7/licenses");
     return { success: true };
   } catch (error: any) {
+    if (error?.message === "Unauthorized" || /Forbidden|insufficient permissions/i.test(error?.message ?? ""))
+      return { success: false, error: "You don't have permission to do this." };
     console.error("[Admin] Add license stock error:", error);
     return { success: false, error: error.message };
   }
@@ -37,6 +41,7 @@ export async function addLicenseStock(data: {
 
 export async function deleteLicenseStock(licenseId: string) {
   try {
+    await requirePermission("stock_keys");
     const supabase = createAdminClient();
     
     const { error } = await supabase
@@ -50,6 +55,8 @@ export async function deleteLicenseStock(licenseId: string) {
     revalidatePath("/mgmt-x9k2m7/licenses");
     return { success: true };
   } catch (error: any) {
+    if (error?.message === "Unauthorized" || /Forbidden|insufficient permissions/i.test(error?.message ?? ""))
+      return { success: false, error: "You don't have permission to do this." };
     console.error("[Admin] Delete license stock error:", error);
     return { success: false, error: error.message };
   }
@@ -57,6 +64,7 @@ export async function deleteLicenseStock(licenseId: string) {
 
 export async function getStockCountByProduct(productId: string, variantId: string | null = null) {
   try {
+    await requirePermission("stock_keys");
     const supabase = createAdminClient();
     
     let query = supabase
@@ -75,6 +83,8 @@ export async function getStockCountByProduct(productId: string, variantId: strin
 
     return { success: true, count: count || 0 };
   } catch (error: any) {
+    if (error?.message === "Unauthorized" || /Forbidden|insufficient permissions/i.test(error?.message ?? ""))
+      return { success: false, error: "You don't have permission to do this.", count: 0 };
     console.error("[Admin] Get stock count error:", error);
     return { success: false, error: error.message, count: 0 };
   }

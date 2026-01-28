@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { verifyPassword } from "@/lib/store-auth";
+import { createStoreSession, COOKIE_NAME, MAX_AGE_SEC } from "@/lib/store-session";
 
 export async function POST(request: NextRequest) {
   try {
     const { email, password } = await request.json();
+    const e = (email ?? "").toString().trim().toLowerCase();
+    const pw = (password ?? "").toString();
 
-    if (!email || !password) {
+    if (!e || !pw) {
       return NextResponse.json(
         { success: false, error: "Email and password are required" },
         { status: 400 }
@@ -14,54 +18,47 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = createAdminClient();
+    const { data: user, error } = await supabase
+      .from("store_users")
+      .select("id, email, username, password_hash, created_at")
+      .eq("email", e)
+      .maybeSingle();
 
-    // Find team member by email
-    const { data: teamMember, error } = await supabase
-      .from("team_members")
-      .select("*")
-      .eq("email", email)
-      .eq("status", "active")
-      .single();
-
-    if (error || !teamMember) {
+    if (error || !user) {
       return NextResponse.json(
         { success: false, error: "Invalid email or password" },
         { status: 401 }
       );
     }
 
-    // Check password (in production, use proper password hashing)
-    if (teamMember.password_hash !== password) {
+    if (!verifyPassword(pw, user.password_hash)) {
       return NextResponse.json(
         { success: false, error: "Invalid email or password" },
         { status: 401 }
       );
     }
 
+    const token = createStoreSession({ userId: user.id, email: user.email });
     const cookieStore = await cookies();
-    cookieStore.delete("magma_admin_session");
-    cookieStore.set("staff-session", teamMember.id, {
+    cookieStore.set(COOKIE_NAME, token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7,
+      maxAge: MAX_AGE_SEC,
       path: "/",
     });
 
     return NextResponse.json({
       success: true,
       user: {
-        id: teamMember.id,
-        email: teamMember.email,
-        name: teamMember.name,
-        role: teamMember.role,
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        createdAt: user.created_at,
       },
     });
-  } catch (error: any) {
-    console.error("[Staff Login] Error:", error);
-    return NextResponse.json(
-      { success: false, error: "Login failed" },
-      { status: 500 }
-    );
+  } catch (err: any) {
+    console.error("[Store Auth] Signin error:", err);
+    return NextResponse.json({ success: false, error: "Sign in failed" }, { status: 500 });
   }
 }

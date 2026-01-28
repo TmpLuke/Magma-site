@@ -7,28 +7,33 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { RefreshCw, Plus, Edit, Trash2, Users, Shield, Crown, Wrench, MessageCircle, Code, Mail, User, AlertCircle, Check, UserPlus } from "lucide-react";
+import { RefreshCw, Plus, Edit, Trash2, Users, Shield, Crown, Wrench, MessageCircle, Code, Mail, User, AlertCircle, Check, UserPlus, AtSign, Key, Package, ShoppingCart, Tag, Webhook, FolderOpen, Settings, LayoutDashboard } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { getTeamMembers, createTeamMember, updateTeamMember, deleteTeamMember } from "@/app/actions/admin-team";
+import { getTeamMembers, updateTeamMember, deleteTeamMember } from "@/app/actions/admin-team";
 import { inviteTeamMember, resendInvite } from "@/app/actions/admin-team-invites";
+import { TEAM_PERMISSIONS, PERMISSION_IDS, getPermissionLabel } from "@/lib/team-permissions";
 
 interface TeamMember {
   id: string;
   name: string;
   email: string;
+  username?: string | null;
   role: string;
   avatar: string | null;
   is_active: boolean;
   status?: string;
   invite_token?: string | null;
   invite_expires_at?: string | null;
+  permissions?: string[];
   created_at: string;
 }
 
 interface TeamFormData {
   name: string;
   email: string;
+  username: string;
   role: string;
+  permissions: string[];
 }
 
 export default function TeamPage() {
@@ -42,7 +47,9 @@ export default function TeamPage() {
   const [formData, setFormData] = useState<TeamFormData>({
     name: "",
     email: "",
+    username: "",
     role: "Support",
+    permissions: [],
   });
   const { toast } = useToast();
 
@@ -75,7 +82,9 @@ export default function TeamPage() {
       const result = await inviteTeamMember({
         name: formData.name,
         email: formData.email,
+        username: formData.username,
         role: formData.role,
+        permissions: formData.permissions,
       });
 
       if (!result.success) {
@@ -112,7 +121,9 @@ export default function TeamPage() {
       const result = await updateTeamMember(selectedMember.id, {
         name: formData.name,
         email: formData.email,
+        username: formData.username,
         role: formData.role,
+        permissions: formData.permissions,
       });
 
       if (!result.success) {
@@ -179,7 +190,9 @@ export default function TeamPage() {
     setFormData({
       name: member.name,
       email: member.email,
+      username: member.username ?? "",
       role: member.role,
+      permissions: Array.isArray(member.permissions) ? member.permissions : [],
     });
     setShowEditModal(true);
   }
@@ -193,9 +206,39 @@ export default function TeamPage() {
     setFormData({
       name: "",
       email: "",
+      username: "",
       role: "Support",
+      permissions: [],
     });
   }
+
+  function togglePermission(id: string) {
+    setFormData((prev) => {
+      const next = prev.permissions.includes(id)
+        ? prev.permissions.filter((p) => p !== id)
+        : [...prev.permissions, id];
+      return { ...prev, permissions: next };
+    });
+  }
+
+  function setFullAccess(on: boolean) {
+    setFormData((prev) => ({
+      ...prev,
+      permissions: on ? [...PERMISSION_IDS] : [],
+    }));
+  }
+
+  const permIcons: Record<string, React.ElementType> = {
+    dashboard: LayoutDashboard,
+    stock_keys: Key,
+    manage_products: Package,
+    manage_orders: ShoppingCart,
+    manage_coupons: Tag,
+    manage_webhooks: Webhook,
+    manage_team: Users,
+    manage_categories: FolderOpen,
+    manage_settings: Settings,
+  };
 
   // Get initials for avatar
   const getInitials = (name: string) => {
@@ -244,7 +287,40 @@ export default function TeamPage() {
                 <Mail className="w-3 h-3 text-white/40" />
                 <p className="text-xs text-white/50 font-medium">{member.email}</p>
               </div>
+              {member.username && (
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <AtSign className="w-3 h-3 text-white/40" />
+                  <p className="text-xs text-white/40 font-medium">{member.username}</p>
+                </div>
+              )}
             </div>
+          </div>
+        );
+      },
+    },
+    {
+      key: "permissions",
+      label: "Permissions",
+      render: (member: TeamMember) => {
+        const perms = Array.isArray(member.permissions) ? member.permissions : [];
+        if (perms.length === 0) {
+          return <span className="text-white/40 text-sm">—</span>;
+        }
+        return (
+          <div className="flex flex-wrap gap-1">
+            {perms.slice(0, 4).map((id) => (
+              <span
+                key={id}
+                className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-xs text-white/70"
+              >
+                {getPermissionLabel(id)}
+              </span>
+            ))}
+            {perms.length > 4 && (
+              <span className="px-2 py-0.5 rounded-md bg-[#dc2626]/10 border border-[#dc2626]/20 text-xs text-[#dc2626]">
+                +{perms.length - 4}
+              </span>
+            )}
           </div>
         );
       },
@@ -506,7 +582,7 @@ export default function TeamPage() {
 
       {/* Add Member Modal */}
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-        <DialogContent className="bg-[#0a0a0a] border-[#1a1a1a] text-white max-w-lg">
+        <DialogContent className="bg-[#0a0a0a] border-[#1a1a1a] text-white max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-[#dc2626]/10 border border-[#dc2626]/20 flex items-center justify-center">
@@ -515,58 +591,112 @@ export default function TeamPage() {
               Invite Team Member
             </DialogTitle>
             <DialogDescription className="text-white/50">
-              Add a new member to your team
+              Email, username, and permissions. An invitation will be sent to their email.
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-white/70">
-                Full Name <span className="text-red-400">*</span>
-              </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-                <Input
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g., John Doe"
-                  className="bg-[#1a1a1a] border-[#262626] text-white pl-10 focus:border-[#dc2626]/50 transition-colors"
-                />
+          <div className="space-y-5 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-white/70">
+                  Email <span className="text-red-400">*</span>
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                  <Input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="john@example.com"
+                    className="bg-[#1a1a1a] border-[#262626] text-white pl-10 focus:border-[#dc2626]/50 transition-colors"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-white/70">Username</label>
+                <div className="relative">
+                  <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                  <Input
+                    value={formData.username}
+                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                    placeholder="johndoe (optional)"
+                    className="bg-[#1a1a1a] border-[#262626] text-white pl-10 focus:border-[#dc2626]/50 transition-colors"
+                  />
+                </div>
+                <p className="text-xs text-white/40">Optional; else derived from name. Used for login.</p>
               </div>
             </div>
-            
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-white/70">
-                Email Address <span className="text-red-400">*</span>
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-                <Input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="e.g., john@magma.local"
-                  className="bg-[#1a1a1a] border-[#262626] text-white pl-10 focus:border-[#dc2626]/50 transition-colors"
-                />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-white/70">
+                  Full Name <span className="text-red-400">*</span>
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                  <Input
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="John Doe"
+                    className="bg-[#1a1a1a] border-[#262626] text-white pl-10 focus:border-[#dc2626]/50 transition-colors"
+                  />
+                </div>
               </div>
-              <p className="text-xs text-white/40">An invitation will be sent to this email</p>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-white/70">
+                  Role <span className="text-red-400">*</span>
+                </label>
+                <select
+                  value={formData.role}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#262626] rounded-lg text-white focus:outline-none focus:border-[#dc2626]/50 transition-colors"
+                >
+                  <option value="Support">Support</option>
+                  <option value="Developer">Developer</option>
+                  <option value="Moderator">Moderator</option>
+                  <option value="Admin">Admin</option>
+                  <option value="Owner">Owner</option>
+                </select>
+              </div>
             </div>
-            
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-white/70">
-                Role <span className="text-red-400">*</span>
-              </label>
-              <select
-                value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#262626] rounded-lg text-white focus:outline-none focus:border-[#dc2626]/50 transition-colors"
-              >
-                <option value="Support">Support - Customer support access</option>
-                <option value="Developer">Developer - Technical access</option>
-                <option value="Moderator">Moderator - Moderation tools</option>
-                <option value="Admin">Admin - Full management access</option>
-                <option value="Owner">Owner - Complete control</option>
-              </select>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="block text-sm font-medium text-white/70">Permissions</label>
+                <button
+                  type="button"
+                  onClick={() => setFullAccess(formData.permissions.length < PERMISSION_IDS.length)}
+                  className="text-xs font-medium text-[#dc2626] hover:text-[#ef4444] transition-colors"
+                >
+                  {formData.permissions.length >= PERMISSION_IDS.length ? "Clear all" : "Full access"}
+                </button>
+              </div>
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 p-5 rounded-xl bg-[#111] border border-[#262626]">
+                {TEAM_PERMISSIONS.map((p) => {
+                  const Icon = permIcons[p.id];
+                  const checked = formData.permissions.includes(p.id);
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => togglePermission(p.id)}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all min-w-[180px] ${
+                        checked
+                          ? "bg-[#dc2626]/10 border-[#dc2626]/40 text-white"
+                          : "bg-[#0a0a0a] border-[#262626] text-white/60 hover:border-[#262626] hover:text-white/80"
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${checked ? "bg-[#dc2626] border-[#dc2626]" : "border-white/30"}`}>
+                        {checked && <Check className="w-3 h-3 text-white" />}
+                      </div>
+                      <span className="flex items-center gap-2 text-sm whitespace-nowrap">
+                        {Icon && <Icon className="w-4 h-4 flex-shrink-0 text-white/50" />}
+                        {p.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
           
@@ -586,12 +716,12 @@ export default function TeamPage() {
               {processing === "add" ? (
                 <>
                   <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                  Adding...
+                  Sending invite...
                 </>
               ) : (
                 <>
                   <UserPlus className="w-4 h-4 mr-2" />
-                  Add Member
+                  Send invitation
                 </>
               )}
             </Button>
@@ -601,7 +731,7 @@ export default function TeamPage() {
 
       {/* Edit Member Modal */}
       <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
-        <DialogContent className="bg-[#0a0a0a] border-[#1a1a1a] text-white max-w-lg">
+        <DialogContent className="bg-[#0a0a0a] border-[#1a1a1a] text-white max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
@@ -610,55 +740,102 @@ export default function TeamPage() {
               Edit Team Member
             </DialogTitle>
             <DialogDescription className="text-white/50">
-              Update member details and permissions
+              Update details and permissions
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-white/70">
-                Full Name <span className="text-red-400">*</span>
-              </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-                <Input
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="bg-[#1a1a1a] border-[#262626] text-white pl-10 focus:border-blue-500/50 transition-colors"
-                />
+          <div className="space-y-5 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-white/70">Email <span className="text-red-400">*</span></label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                  <Input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="bg-[#1a1a1a] border-[#262626] text-white pl-10 focus:border-blue-500/50 transition-colors"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-white/70">Username</label>
+                <div className="relative">
+                  <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                  <Input
+                    value={formData.username}
+                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                    placeholder="johndoe"
+                    className="bg-[#1a1a1a] border-[#262626] text-white pl-10 focus:border-blue-500/50 transition-colors"
+                  />
+                </div>
               </div>
             </div>
-            
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-white/70">
-                Email Address <span className="text-red-400">*</span>
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-                <Input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="bg-[#1a1a1a] border-[#262626] text-white pl-10 focus:border-blue-500/50 transition-colors"
-                />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-white/70">Full Name <span className="text-red-400">*</span></label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                  <Input
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="bg-[#1a1a1a] border-[#262626] text-white pl-10 focus:border-blue-500/50 transition-colors"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-white/70">Role <span className="text-red-400">*</span></label>
+                <select
+                  value={formData.role}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#262626] rounded-lg text-white focus:outline-none focus:border-blue-500/50 transition-colors"
+                >
+                  <option value="Support">Support</option>
+                  <option value="Developer">Developer</option>
+                  <option value="Moderator">Moderator</option>
+                  <option value="Admin">Admin</option>
+                  <option value="Owner">Owner</option>
+                </select>
               </div>
             </div>
-            
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-white/70">
-                Role <span className="text-red-400">*</span>
-              </label>
-              <select
-                value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                className="w-full px-4 py-2.5 bg-[#1a1a1a] border border-[#262626] rounded-lg text-white focus:outline-none focus:border-blue-500/50 transition-colors"
-              >
-                <option value="Support">Support - Customer support access</option>
-                <option value="Developer">Developer - Technical access</option>
-                <option value="Moderator">Moderator - Moderation tools</option>
-                <option value="Admin">Admin - Full management access</option>
-                <option value="Owner">Owner - Complete control</option>
-              </select>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="block text-sm font-medium text-white/70">Permissions</label>
+                <button
+                  type="button"
+                  onClick={() => setFullAccess(formData.permissions.length < PERMISSION_IDS.length)}
+                  className="text-xs font-medium text-blue-400 hover:text-blue-300 transition-colors"
+                >
+                  {formData.permissions.length >= PERMISSION_IDS.length ? "Clear all" : "Full access"}
+                </button>
+              </div>
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 p-5 rounded-xl bg-[#111] border border-[#262626]">
+                {TEAM_PERMISSIONS.map((p) => {
+                  const Icon = permIcons[p.id];
+                  const checked = formData.permissions.includes(p.id);
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => togglePermission(p.id)}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all min-w-[180px] ${
+                        checked
+                          ? "bg-blue-500/10 border-blue-500/40 text-white"
+                          : "bg-[#0a0a0a] border-[#262626] text-white/60 hover:border-[#262626] hover:text-white/80"
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${checked ? "bg-blue-500 border-blue-500" : "border-white/30"}`}>
+                        {checked && <Check className="w-3 h-3 text-white" />}
+                      </div>
+                      <span className="flex items-center gap-2 text-sm whitespace-nowrap">
+                        {Icon && <Icon className="w-4 h-4 flex-shrink-0 text-white/50" />}
+                        {p.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
           

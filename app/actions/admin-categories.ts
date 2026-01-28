@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
+import { requirePermission } from "@/lib/admin-auth";
 
 export async function createCategory(data: {
   name: string;
@@ -11,6 +12,7 @@ export async function createCategory(data: {
   display_order?: number;
 }) {
   try {
+    await requirePermission("manage_categories");
     const supabase = createAdminClient();
 
     const { error } = await supabase
@@ -32,6 +34,8 @@ export async function createCategory(data: {
     revalidatePath("/status");
     return { success: true };
   } catch (error: any) {
+    if (error?.message === "Unauthorized" || /Forbidden|insufficient permissions/i.test(error?.message ?? ""))
+      return { success: false, error: "You don't have permission to do this." };
     console.error("[Admin] Create category error:", error);
     return { success: false, error: error.message };
   }
@@ -48,6 +52,7 @@ export async function updateCategory(
   }
 ) {
   try {
+    await requirePermission("manage_categories");
     const supabase = createAdminClient();
 
     const { error } = await supabase
@@ -69,6 +74,8 @@ export async function updateCategory(
     revalidatePath("/status");
     return { success: true };
   } catch (error: any) {
+    if (error?.message === "Unauthorized" || /Forbidden|insufficient permissions/i.test(error?.message ?? ""))
+      return { success: false, error: "You don't have permission to do this." };
     console.error("[Admin] Update category error:", error);
     return { success: false, error: error.message };
   }
@@ -76,6 +83,7 @@ export async function updateCategory(
 
 export async function deleteCategory(id: string) {
   try {
+    await requirePermission("manage_categories");
     const supabase = createAdminClient();
 
     // First check if category has products
@@ -103,6 +111,8 @@ export async function deleteCategory(id: string) {
     revalidatePath("/status");
     return { success: true };
   } catch (error: any) {
+    if (error?.message === "Unauthorized" || /Forbidden|insufficient permissions/i.test(error?.message ?? ""))
+      return { success: false, error: "You don't have permission to do this." };
     console.error("[Admin] Delete category error:", error);
     return { success: false, error: error.message };
   }
@@ -110,6 +120,7 @@ export async function deleteCategory(id: string) {
 
 export async function getCategoriesWithProductCount() {
   try {
+    await requirePermission("manage_categories");
     const supabase = createAdminClient();
 
     const { data: categories, error: categoriesError } = await supabase
@@ -138,6 +149,8 @@ export async function getCategoriesWithProductCount() {
 
     return { success: true, data: categoriesWithCounts };
   } catch (error: any) {
+    if (error?.message === "Unauthorized" || /Forbidden|insufficient permissions/i.test(error?.message ?? ""))
+      return { success: false, error: "You don't have permission to do this.", data: [] };
     console.error("[Admin] Get categories error:", error);
     return { success: false, error: error.message, data: [] };
   }
@@ -145,6 +158,7 @@ export async function getCategoriesWithProductCount() {
 
 export async function getCategoryProducts(categoryId: string) {
   try {
+    await requirePermission("manage_categories");
     const supabase = createAdminClient();
 
     const { data: products, error } = await supabase
@@ -157,6 +171,8 @@ export async function getCategoryProducts(categoryId: string) {
 
     return { success: true, data: products || [] };
   } catch (error: any) {
+    if (error?.message === "Unauthorized" || /Forbidden|insufficient permissions/i.test(error?.message ?? ""))
+      return { success: false, error: "You don't have permission to do this.", data: [] };
     console.error("[Admin] Get category products error:", error);
     return { success: false, error: error.message, data: [] };
   }

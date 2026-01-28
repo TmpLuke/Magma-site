@@ -298,12 +298,13 @@ export function AuthDropdown() {
               </button>
 
               {activeTab === "signin" && (
-                <button
-                  type="button"
-                  className="w-full mt-3 text-[#dc2626] hover:text-[#ef4444] text-sm transition-colors"
+                <Link
+                  href="/forgot-password"
+                  className="block w-full mt-3 text-center text-[#dc2626] hover:text-[#ef4444] text-sm transition-colors"
+                  onClick={() => setIsOpen(false)}
                 >
                   Forgot your password?
-                </button>
+                </Link>
               )}
             </form>
           </div>

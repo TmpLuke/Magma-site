@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
@@ -19,33 +19,50 @@ import {
   CircleDot,
   Activity,
   FolderOpen,
+  UserCog,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAdminStore } from "@/lib/admin-store";
-import { logoutAdmin } from "@/lib/admin-auth";
 
-const navItems = [
-  { href: "/mgmt-x9k2m7", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/mgmt-x9k2m7/status", label: "Product Status", icon: Activity },
-  { href: "/mgmt-x9k2m7/categories", label: "Categories", icon: FolderOpen },
-  { href: "/mgmt-x9k2m7/orders", label: "Orders", icon: ShoppingCart },
-  { href: "/mgmt-x9k2m7/licenses", label: "License Keys", icon: Key },
-  { href: "/mgmt-x9k2m7/products", label: "Products", icon: Package },
-  { href: "/mgmt-x9k2m7/coupons", label: "Coupons", icon: Tag },
-  { href: "/mgmt-x9k2m7/webhooks", label: "Webhooks", icon: Webhook },
-  { href: "/mgmt-x9k2m7/team", label: "Team", icon: Users },
+const navItems: { href: string; label: string; icon: typeof LayoutDashboard; permission: string }[] = [
+  { href: "/mgmt-x9k2m7", label: "Dashboard", icon: LayoutDashboard, permission: "dashboard" },
+  { href: "/mgmt-x9k2m7/status", label: "Product Status", icon: Activity, permission: "manage_products" },
+  { href: "/mgmt-x9k2m7/categories", label: "Categories", icon: FolderOpen, permission: "manage_categories" },
+  { href: "/mgmt-x9k2m7/orders", label: "Orders", icon: ShoppingCart, permission: "manage_orders" },
+  { href: "/mgmt-x9k2m7/licenses", label: "License Keys", icon: Key, permission: "stock_keys" },
+  { href: "/mgmt-x9k2m7/products", label: "Products", icon: Package, permission: "manage_products" },
+  { href: "/mgmt-x9k2m7/coupons", label: "Coupons", icon: Tag, permission: "manage_coupons" },
+  { href: "/mgmt-x9k2m7/webhooks", label: "Webhooks", icon: Webhook, permission: "manage_webhooks" },
+  { href: "/mgmt-x9k2m7/team", label: "Team", icon: Users, permission: "manage_team" },
+  { href: "/mgmt-x9k2m7/logins", label: "Manage Logins", icon: UserCog, permission: "manage_logins" },
 ];
 
 export function AdminSidebar() {
   const pathname = usePathname();
   const { sidebarOpen, setSidebarOpen } = useAdminStore();
   const [mounted, setMounted] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(true);
+  const [permissions, setPermissions] = useState<string[]>([]);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Use default state during SSR to prevent hydration mismatch
+  useEffect(() => {
+    fetch("/api/auth/context")
+      .then((r) => r.json())
+      .then((d) => {
+        setIsAdmin(!!d.isAdmin);
+        setPermissions(Array.isArray(d.permissions) ? d.permissions : []);
+      })
+      .catch(() => { setIsAdmin(true); setPermissions([]); });
+  }, []);
+
+  const allowedNav = isAdmin
+    ? navItems
+    : navItems.filter((item) => permissions.includes(item.permission));
+  const canSettings = isAdmin || permissions.includes("manage_settings");
+
   const isOpen = mounted ? sidebarOpen : true;
 
   return (
@@ -88,7 +105,7 @@ export function AdminSidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-[#1a1a1a]">
-        {navItems.map((item) => {
+        {allowedNav.map((item) => {
           const isActive =
             pathname === item.href ||
             (item.href !== "/mgmt-x9k2m7" && pathname.startsWith(item.href));
@@ -145,6 +162,7 @@ export function AdminSidebar() {
 
       {/* Bottom Section */}
       <div className="p-3 border-t border-[#1a1a1a] space-y-1 bg-[#0a0a0a]/50 backdrop-blur-sm">
+        {canSettings && (
         <Link
           href="/mgmt-x9k2m7/settings"
           className={cn(
@@ -173,11 +191,12 @@ export function AdminSidebar() {
             <span className={cn(
               "font-medium relative z-10",
               pathname === "/mgmt-x9k2m7/settings" ? "text-white" : ""
-            )}>
-              Settings
+          )}>
+            Settings
             </span>
           )}
         </Link>
+        )}
         
         <button
           type="button"

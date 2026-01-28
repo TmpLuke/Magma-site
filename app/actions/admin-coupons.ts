@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
+import { requirePermission } from "@/lib/admin-auth";
 
 export async function createCoupon(data: {
   code: string;
@@ -10,6 +11,7 @@ export async function createCoupon(data: {
   valid_until: string | null;
 }) {
   try {
+    await requirePermission("manage_coupons");
     const supabase = createAdminClient();
     
     const { error } = await supabase.from("coupons").insert({
@@ -26,6 +28,8 @@ export async function createCoupon(data: {
     revalidatePath("/mgmt-x9k2m7/coupons");
     return { success: true };
   } catch (error: any) {
+    if (error?.message === "Unauthorized" || /Forbidden|insufficient permissions/i.test(error?.message ?? ""))
+      return { success: false, error: "You don't have permission to do this." };
     console.error("[Admin] Create coupon error:", error);
     return { success: false, error: error.message };
   }
@@ -39,6 +43,7 @@ export async function updateCoupon(id: string, data: {
   is_active: boolean;
 }) {
   try {
+    await requirePermission("manage_coupons");
     const supabase = createAdminClient();
     
     const { error } = await supabase
@@ -57,6 +62,8 @@ export async function updateCoupon(id: string, data: {
     revalidatePath("/mgmt-x9k2m7/coupons");
     return { success: true };
   } catch (error: any) {
+    if (error?.message === "Unauthorized" || /Forbidden|insufficient permissions/i.test(error?.message ?? ""))
+      return { success: false, error: "You don't have permission to do this." };
     console.error("[Admin] Update coupon error:", error);
     return { success: false, error: error.message };
   }
@@ -64,6 +71,7 @@ export async function updateCoupon(id: string, data: {
 
 export async function deleteCoupon(id: string) {
   try {
+    await requirePermission("manage_coupons");
     const supabase = createAdminClient();
     
     const { error } = await supabase
@@ -76,6 +84,8 @@ export async function deleteCoupon(id: string) {
     revalidatePath("/mgmt-x9k2m7/coupons");
     return { success: true };
   } catch (error: any) {
+    if (error?.message === "Unauthorized" || /Forbidden|insufficient permissions/i.test(error?.message ?? ""))
+      return { success: false, error: "You don't have permission to do this." };
     console.error("[Admin] Delete coupon error:", error);
     return { success: false, error: error.message };
   }
@@ -83,6 +93,7 @@ export async function deleteCoupon(id: string) {
 
 export async function toggleCouponStatus(id: string, currentStatus: boolean) {
   try {
+    await requirePermission("manage_coupons");
     const supabase = createAdminClient();
     
     const { error } = await supabase
@@ -95,6 +106,8 @@ export async function toggleCouponStatus(id: string, currentStatus: boolean) {
     revalidatePath("/mgmt-x9k2m7/coupons");
     return { success: true };
   } catch (error: any) {
+    if (error?.message === "Unauthorized" || /Forbidden|insufficient permissions/i.test(error?.message ?? ""))
+      return { success: false, error: "You don't have permission to do this." };
     console.error("[Admin] Toggle coupon status error:", error);
     return { success: false, error: error.message };
   }

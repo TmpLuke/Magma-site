@@ -5,8 +5,10 @@ import { AdminShell } from "@/components/admin/admin-shell";
 import { StatCard } from "@/components/admin/stat-card";
 import { DollarSign, ShoppingCart, Key, TrendingUp, ArrowUpRight, Package, Users, Activity, Clock, CheckCircle, XCircle, Zap } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AdminDashboard() {
+  const { toast } = useToast();
   const [stats, setStats] = useState({
     revenue: 0,
     revenueGrowth: 0,
@@ -128,6 +130,18 @@ export default function AdminDashboard() {
 
     loadStats();
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.search.includes("error=forbidden")) {
+      toast({
+        title: "Access denied",
+        description: "You don't have permission to view that page.",
+        variant: "destructive",
+      });
+      window.history.replaceState({}, "", "/mgmt-x9k2m7");
+    }
+  }, [toast]);
 
   if (loading) {
     return (

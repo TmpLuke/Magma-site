@@ -2,9 +2,11 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
+import { requirePermission } from "@/lib/admin-auth";
 
 export async function loadSettings() {
   try {
+    await requirePermission("manage_settings");
     const supabase = createAdminClient();
     const { data, error } = await supabase
       .from("settings")
@@ -27,6 +29,8 @@ export async function loadSettings() {
       }
     };
   } catch (error: any) {
+    if (error?.message === "Unauthorized" || /Forbidden|insufficient permissions/i.test(error?.message ?? ""))
+      return { success: false, error: "You don't have permission to do this." };
     console.error("[Admin] Load settings error:", error);
     return { success: false, error: error.message };
   }
@@ -39,6 +43,7 @@ export async function saveSettings(settings: {
   maintenance_mode: boolean;
 }) {
   try {
+    await requirePermission("manage_settings");
     const supabase = createAdminClient();
 
     const updates = [
@@ -62,6 +67,8 @@ export async function saveSettings(settings: {
     revalidatePath("/mgmt-x9k2m7/settings");
     return { success: true };
   } catch (error: any) {
+    if (error?.message === "Unauthorized" || /Forbidden|insufficient permissions/i.test(error?.message ?? ""))
+      return { success: false, error: "You don't have permission to do this." };
     console.error("[Admin] Save settings error:", error);
     return { success: false, error: error.message };
   }

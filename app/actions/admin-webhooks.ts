@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
+import { requirePermission } from "@/lib/admin-auth";
 
 export async function createWebhook(data: {
   name: string;
@@ -9,6 +10,7 @@ export async function createWebhook(data: {
   events: string[];
 }) {
   try {
+    await requirePermission("manage_webhooks");
     const supabase = createAdminClient();
     
     const { error } = await supabase.from("webhooks").insert({
@@ -23,6 +25,8 @@ export async function createWebhook(data: {
     revalidatePath("/mgmt-x9k2m7/webhooks");
     return { success: true };
   } catch (error: any) {
+    if (error?.message === "Unauthorized" || /Forbidden|insufficient permissions/i.test(error?.message ?? ""))
+      return { success: false, error: "You don't have permission to do this." };
     console.error("[Admin] Create webhook error:", error);
     return { success: false, error: error.message };
   }
@@ -35,6 +39,7 @@ export async function updateWebhook(id: string, data: {
   is_active: boolean;
 }) {
   try {
+    await requirePermission("manage_webhooks");
     const supabase = createAdminClient();
     
     const { error } = await supabase
@@ -52,6 +57,8 @@ export async function updateWebhook(id: string, data: {
     revalidatePath("/mgmt-x9k2m7/webhooks");
     return { success: true };
   } catch (error: any) {
+    if (error?.message === "Unauthorized" || /Forbidden|insufficient permissions/i.test(error?.message ?? ""))
+      return { success: false, error: "You don't have permission to do this." };
     console.error("[Admin] Update webhook error:", error);
     return { success: false, error: error.message };
   }
@@ -59,6 +66,7 @@ export async function updateWebhook(id: string, data: {
 
 export async function deleteWebhook(id: string) {
   try {
+    await requirePermission("manage_webhooks");
     const supabase = createAdminClient();
     
     const { error } = await supabase
@@ -71,6 +79,8 @@ export async function deleteWebhook(id: string) {
     revalidatePath("/mgmt-x9k2m7/webhooks");
     return { success: true };
   } catch (error: any) {
+    if (error?.message === "Unauthorized" || /Forbidden|insufficient permissions/i.test(error?.message ?? ""))
+      return { success: false, error: "You don't have permission to do this." };
     console.error("[Admin] Delete webhook error:", error);
     return { success: false, error: error.message };
   }
@@ -78,6 +88,7 @@ export async function deleteWebhook(id: string) {
 
 export async function toggleWebhookStatus(id: string, currentStatus: boolean) {
   try {
+    await requirePermission("manage_webhooks");
     const supabase = createAdminClient();
     
     const { error } = await supabase
@@ -90,6 +101,8 @@ export async function toggleWebhookStatus(id: string, currentStatus: boolean) {
     revalidatePath("/mgmt-x9k2m7/webhooks");
     return { success: true };
   } catch (error: any) {
+    if (error?.message === "Unauthorized" || /Forbidden|insufficient permissions/i.test(error?.message ?? ""))
+      return { success: false, error: "You don't have permission to do this." };
     console.error("[Admin] Toggle webhook status error:", error);
     return { success: false, error: error.message };
   }

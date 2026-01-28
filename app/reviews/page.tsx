@@ -3,6 +3,7 @@ import { Footer } from "@/components/footer";
 import { getReviews } from "@/lib/supabase/data";
 import { ReviewsClient } from "@/components/reviews-client";
 
+export const dynamic = "force-dynamic";
 export const revalidate = 60;
 
 export default async function ReviewsPage() {

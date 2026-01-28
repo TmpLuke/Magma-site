@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,17 +9,17 @@ import { useToast } from "@/hooks/use-toast";
 import { verifyInviteToken, acceptInvite } from "@/app/actions/admin-team-invites";
 import { CheckCircle, AlertCircle, RefreshCw, Flame } from "lucide-react";
 
-export default function AcceptInvitePage() {
+function AcceptInviteContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const token = searchParams.get("token");
   const [loading, setLoading] = useState(true);
   const [verifying, setVerifying] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
   const [valid, setValid] = useState(false);
   const [teamMember, setTeamMember] = useState<any>(null);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -139,7 +139,6 @@ export default function AcceptInvitePage() {
   return (
     <main className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
       <div className="bg-[#111111] border border-[#262626] rounded-xl p-8 max-w-md w-full">
-        {/* Header */}
         <div className="text-center mb-8">
           <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-[#dc2626] to-[#ef4444] flex items-center justify-center mx-auto mb-4">
             <Flame className="w-8 h-8 text-white" />
@@ -148,7 +147,6 @@ export default function AcceptInvitePage() {
           <p className="text-white/60 text-sm">Complete your account setup</p>
         </div>
 
-        {/* Team Member Info */}
         <div className="bg-[#1a1a1a] border border-[#262626] rounded-lg p-4 mb-6">
           <div className="flex items-center gap-3 mb-3">
             <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
@@ -166,7 +164,6 @@ export default function AcceptInvitePage() {
           </div>
         </div>
 
-        {/* Password Form */}
         <div className="space-y-4 mb-6">
           <div>
             <Label className="text-white mb-2">Create Password *</Label>
@@ -190,7 +187,6 @@ export default function AcceptInvitePage() {
           </div>
         </div>
 
-        {/* Accept Button */}
         <Button
           onClick={handleAccept}
           disabled={submitting || !password || !confirmPassword}
@@ -209,11 +205,27 @@ export default function AcceptInvitePage() {
           )}
         </Button>
 
-        {/* Footer */}
         <p className="text-center text-white/40 text-xs mt-6">
           By accepting, you agree to follow our team guidelines and policies.
         </p>
       </div>
     </main>
+  );
+}
+
+export default function AcceptInvitePage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
+          <div className="text-center">
+            <RefreshCw className="w-8 h-8 text-[#dc2626] animate-spin mx-auto mb-4" />
+            <p className="text-white/60">Loading...</p>
+          </div>
+        </main>
+      }
+    >
+      <AcceptInviteContent />
+    </Suspense>
   );
 }

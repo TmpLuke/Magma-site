@@ -6,7 +6,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { StoreFilters } from "@/components/store-filters";
 
-export const revalidate = 60; // Revalidate every 60 seconds
+export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export default async function StorePage() {
   const products = await getProducts();

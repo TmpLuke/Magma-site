@@ -67,18 +67,36 @@ export async function getProducts() {
       return [];
     }
 
-    // Fetch pricing, features, and requirements for all products
+    // Fetch pricing, features, requirements, and stock for all products
     const productIds = products.map((p) => p.id);
     
-    const [pricingResult, featuresResult, requirementsResult] = await Promise.all([
+    const [pricingResult, featuresResult, requirementsResult, stockResult] = await Promise.all([
       supabase.from("product_pricing").select("*").in("product_id", productIds),
       supabase.from("product_features").select("*").in("product_id", productIds),
       supabase.from("product_requirements").select("*").in("product_id", productIds),
+      supabase.from("licenses").select("product_id, variant_id").in("product_id", productIds).eq("status", "unused"),
     ]);
+
+    // Calculate stock counts
+    const stockMap = new Map<string, number>(); // variant_id -> count
+    if (stockResult.data) {
+      stockResult.data.forEach((l) => {
+        if (l.variant_id) {
+          stockMap.set(l.variant_id, (stockMap.get(l.variant_id) || 0) + 1);
+        }
+      });
+    }
 
     // Transform products with their related data
     return products.map((product) => {
-      const pricing = pricingResult.data?.filter((p) => p.product_id === product.id) || [];
+      let pricing = pricingResult.data?.filter((p) => p.product_id === product.id) || [];
+      
+      // Inject real stock counts
+      pricing = pricing.map(p => ({
+        ...p,
+        stock: stockMap.get(p.id) || 0
+      }));
+
       const features = featuresResult.data?.filter((f) => f.product_id === product.id) || [];
       const requirements = requirementsResult.data?.filter((r) => r.product_id === product.id) || [];
       
@@ -106,15 +124,33 @@ export async function getProductBySlug(slug: string) {
     }
 
     // Fetch related data
-    const [pricingResult, featuresResult, requirementsResult] = await Promise.all([
+    const [pricingResult, featuresResult, requirementsResult, stockResult] = await Promise.all([
       supabase.from("product_pricing").select("*").eq("product_id", product.id),
       supabase.from("product_features").select("*").eq("product_id", product.id),
       supabase.from("product_requirements").select("*").eq("product_id", product.id),
+      supabase.from("licenses").select("variant_id").eq("product_id", product.id).eq("status", "unused"),
     ]);
+
+    // Calculate stock counts
+    const stockMap = new Map<string, number>();
+    if (stockResult.data) {
+      stockResult.data.forEach((l) => {
+        if (l.variant_id) {
+          stockMap.set(l.variant_id, (stockMap.get(l.variant_id) || 0) + 1);
+        }
+      });
+    }
+
+    let pricing = pricingResult.data || [];
+    // Inject real stock counts
+    pricing = pricing.map(p => ({
+      ...p,
+      stock: stockMap.get(p.id) || 0
+    }));
 
     return transformProduct(
       product,
-      pricingResult.data || [],
+      pricing,
       featuresResult.data || [],
       requirementsResult.data || []
     );

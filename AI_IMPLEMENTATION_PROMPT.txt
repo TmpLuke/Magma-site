@@ -1,0 +1,413 @@
+================================================================================
+                    AI PROMPT: IMPLEMENT MONEYMOTION PAYMENTS
+                         Complete Implementation Instructions
+================================================================================
+
+TASK: Implement MoneyMotion payment processing in a Next.js application
+
+You are tasked with implementing a complete MoneyMotion payment system. MoneyMotion is a payment processor that handles credit cards, crypto payments, and provides webhook notifications. Follow these instructions precisely to create a secure, production-ready payment system.
+
+================================================================================
+                              REQUIREMENTS
+================================================================================
+
+CORE FUNCTIONALITY NEEDED:
+1. Create checkout sessions with MoneyMotion API
+2. Handle webhook notifications for payment events
+3. Process purchases and manage order states
+4. Implement secure signature verification
+5. Handle success/failure redirects
+6. Provide comprehensive error handling
+7. Support coupon codes and discounts
+8. Send confirmation emails after purchase
+
+TECHNICAL STACK:
+- Next.js 14+ with App Router
+- TypeScript for type safety
+- Server Actions for API calls
+- Webhook endpoint for payment notifications
+- Environment variables for configuration
+
+================================================================================
+                           IMPLEMENTATION STEPS
+================================================================================
+
+STEP 1: ENVIRONMENT SETUP
+Create these environment variables in .env.local:
+```
+MONEYMOTION_API_KEY=your_moneymotion_api_key_here
+MONEYMOTION_WEBHOOK_SECRET=your_webhook_secret_here
+NEXT_PUBLIC_SITE_URL=https://your-domain.com
+```
+
+STEP 2: CREATE MONEYMOTION LIBRARY
+File: lib/moneymotion.ts
+
+Requirements:
+- Use "use server" directive for server-side execution
+- Implement createCheckoutSession() function
+- Implement getCheckoutStatus() function  
+- Implement webhook signature verification
+- Use proper TypeScript interfaces
+- Handle all error cases gracefully
+- Include comprehensive logging for debugging
+
+API Details:
+- Base URL: https://api.moneymotion.io
+- Create Checkout: POST /checkoutSessions.createCheckoutSession
+- Get Status: GET /checkoutSessions.getCompletedOrPendingCheckoutSessionInfo
+- Headers: x-api-key, x-currency: USD, Content-Type: application/json
+- Prices must be in CENTS (multiply dollars by 100)
+- Checkout URL format: https://moneymotion.io/checkout/{sessionId}
+
+STEP 3: CREATE WEBHOOK HANDLER
+File: app/api/webhooks/moneymotion/route.ts
+
+Requirements:
+- Handle POST requests only
+- Verify webhook signatures using HMAC-SHA512
+- Process these events: complete, refunded, expired, disputed
+- Update order status in database
+- Send confirmation emails
+- Return proper HTTP status codes
+- Include comprehensive error handling
+- Log all webhook events for debugging
+
+Webhook Security:
+- Signature header: x-moneymotion-signature
+- Algorithm: HMAC-SHA512 with base64 encoding
+- Always verify before processing payload
+
+STEP 4: CREATE PURCHASE PROCESSING
+File: lib/purchase-actions.ts
+
+Requirements:
+- Implement processPurchase() server action
+- Create orders as "pending" status initially
+- Support coupon code validation and discounts
+- Generate unique order numbers
+- Handle MoneyMotion checkout session creation
+- Provide detailed error messages
+- Support multiple line items
+- Calculate taxes if needed
+
+STEP 5: CREATE CHECKOUT PAGES
+Files needed:
+- app/checkout/confirm/page.tsx - Order review and payment
+- app/payment/success/page.tsx - Success redirect
+- app/payment/cancelled/page.tsx - Cancel/failure redirect
+
+Requirements:
+- Display order summary with line items
+- Show pricing breakdown with discounts
+- Implement coupon code input and validation
+- Handle loading states during checkout
+- Redirect to MoneyMotion checkout URL
+- Display appropriate success/error messages
+- Include security indicators (SSL, secure payment)
+
+================================================================================
+                              CODE TEMPLATES
+================================================================================
+
+MONEYMOTION LIBRARY TEMPLATE:
+```typescript
+"use server";
+
+import crypto from 'crypto';
+
+const MONEYMOTION_API_URL = "https://api.moneymotion.io";
+
+interface LineItem {
+  name: string;
+  description: string;
+  pricePerItemInCents: number;
+  quantity: number;
+}
+
+interface CreateCheckoutParams {
+  description: string;
+  successUrl: string;
+  cancelUrl: string;
+  failureUrl: string;
+  customerEmail: string;
+  lineItems: LineItem[];
+}
+
+export async function createCheckoutSession(params: CreateCheckoutParams) {
+  // TODO: Implement checkout session creation
+  // 1. Validate API key exists
+  // 2. Prepare request body with proper structure
+  // 3. Make POST request to MoneyMotion API
+  // 4. Handle response and extract checkout URL
+  // 5. Return success/error result
+}
+
+export async function getCheckoutStatus(checkoutId: string) {
+  // TODO: Implement status checking
+  // 1. Make GET request to status endpoint
+  // 2. Parse response data
+  // 3. Return formatted status information
+}
+
+export async function verifyWebhookSignature(
+  rawBody: string,
+  signatureHeader: string,
+  secret: string
+): Promise<boolean> {
+  // TODO: Implement HMAC-SHA512 signature verification
+  // 1. Create HMAC with secret
+  // 2. Hash the raw body
+  // 3. Compare with provided signature
+  // 4. Use timing-safe comparison
+}
+```
+
+WEBHOOK HANDLER TEMPLATE:
+```typescript
+import { NextRequest, NextResponse } from "next/server";
+import { verifyWebhookSignature } from "@/lib/moneymotion";
+
+export async function POST(request: NextRequest) {
+  try {
+    // TODO: Implement webhook processing
+    // 1. Extract raw body and signature header
+    // 2. Verify webhook signature for security
+    // 3. Parse webhook payload
+    // 4. Handle different event types
+    // 5. Update database records
+    // 6. Send confirmation emails
+    // 7. Return success response
+  } catch (error) {
+    // TODO: Handle errors gracefully
+    // Return appropriate error responses
+  }
+}
+```
+
+PURCHASE PROCESSING TEMPLATE:
+```typescript
+"use server";
+
+import { createCheckoutSession } from "@/lib/moneymotion";
+
+export async function processPurchase(data: PurchaseData) {
+  try {
+    // TODO: Implement purchase processing
+    // 1. Validate input data
+    // 2. Apply coupon discounts if provided
+    // 3. Create pending order in database
+    // 4. Create MoneyMotion checkout session
+    // 5. Return checkout URL for redirect
+  } catch (error) {
+    // TODO: Handle errors and cleanup
+  }
+}
+```
+
+================================================================================
+                              CRITICAL DETAILS
+================================================================================
+
+PRICING FORMAT:
+- MoneyMotion expects prices in CENTS, not dollars
+- Always multiply dollar amounts by 100
+- Example: $29.99 becomes 2999 cents
+
+API HEADERS:
+- x-api-key: YOUR_API_KEY (required)
+- x-currency: USD (required)
+- Content-Type: application/json (required)
+
+REQUEST BODY STRUCTURE:
+```json
+{
+  "json": {
+    "description": "Product Name - Duration",
+    "urls": {
+      "success": "https://yoursite.com/payment/success",
+      "cancel": "https://yoursite.com/payment/cancelled",
+      "failure": "https://yoursite.com/payment/cancelled"
+    },
+    "userInfo": {
+      "email": "customer@example.com"
+    },
+    "lineItems": [
+      {
+        "name": "Product Name",
+        "description": "Product Description",
+        "pricePerItemInCents": 2999,
+        "quantity": 1
+      }
+    ]
+  }
+}
+```
+
+WEBHOOK PAYLOAD STRUCTURE:
+```json
+{
+  "checkoutSession": {
+    "id": "session_123",
+    "status": "completed",
+    "totalInCents": 2999,
+    "storeId": "store_456"
+  },
+  "event": "checkout_session:complete",
+  "customer": {
+    "email": "customer@example.com",
+    "paymentMethodInfo": {
+      "type": "card",
+      "lastFourDigits": "4242",
+      "cardBrand": "visa"
+    }
+  }
+}
+```
+
+================================================================================
+                              ERROR HANDLING
+================================================================================
+
+IMPLEMENT THESE ERROR SCENARIOS:
+1. Missing or invalid API key
+2. Network timeouts and connection errors
+3. Invalid webhook signatures
+4. Malformed API responses
+5. Database connection failures
+6. Email sending failures
+7. Invalid input validation
+8. Checkout session expiration
+
+ERROR RESPONSE FORMAT:
+```typescript
+interface ErrorResponse {
+  success: false;
+  error: string;
+  details?: any;
+}
+
+interface SuccessResponse {
+  success: true;
+  data: any;
+}
+```
+
+LOGGING REQUIREMENTS:
+- Log all API requests and responses
+- Log webhook events and processing
+- Log errors with full context
+- Include timestamps and request IDs
+- Use different log levels (info, warn, error)
+
+================================================================================
+                              SECURITY REQUIREMENTS
+================================================================================
+
+MANDATORY SECURITY MEASURES:
+1. Always verify webhook signatures before processing
+2. Use HTTPS for all endpoints and redirects
+3. Store API keys in environment variables only
+4. Validate all input data before processing
+5. Use timing-safe comparison for signatures
+6. Implement rate limiting on webhook endpoints
+7. Log security events for monitoring
+8. Never expose API keys to client-side code
+
+WEBHOOK SIGNATURE VERIFICATION:
+```typescript
+// Use HMAC-SHA512 with base64 encoding
+const computedHash = crypto
+  .createHmac("sha512", webhookSecret)
+  .update(rawBody)
+  .digest("base64");
+
+// Use timing-safe comparison
+const isValid = crypto.timingSafeEqual(
+  Buffer.from(computedHash),
+  Buffer.from(signatureHeader)
+);
+```
+
+================================================================================
+                              TESTING REQUIREMENTS
+================================================================================
+
+IMPLEMENT THESE TESTS:
+1. Successful checkout session creation
+2. Failed API calls with proper error handling
+3. Webhook signature verification (valid and invalid)
+4. All webhook event types processing
+5. Order status updates
+6. Email sending functionality
+7. Coupon code validation
+8. Edge cases and error scenarios
+
+TEST DATA:
+- Use MoneyMotion sandbox environment
+- Test with provided test card numbers
+- Simulate webhook events for testing
+- Test with various price amounts and currencies
+
+================================================================================
+                              DEPLOYMENT CHECKLIST
+================================================================================
+
+BEFORE PRODUCTION:
+□ Replace test API keys with production keys
+□ Update all URLs to production domains
+□ Test complete purchase flow end-to-end
+□ Verify webhook endpoint is publicly accessible
+□ Test webhook signature verification
+□ Implement proper error monitoring
+□ Set up logging and alerting
+□ Test refund and dispute handling
+□ Verify SSL certificates
+□ Test with real payment methods
+□ Review security implementation
+□ Set up backup and recovery procedures
+
+================================================================================
+                              SUCCESS CRITERIA
+================================================================================
+
+YOUR IMPLEMENTATION IS COMPLETE WHEN:
+1. Users can successfully create checkout sessions
+2. Payments are processed through MoneyMotion
+3. Webhooks are received and processed correctly
+4. Orders are updated based on payment status
+5. Confirmation emails are sent automatically
+6. Error handling works for all scenarios
+7. Security measures are properly implemented
+8. Code is well-documented and maintainable
+9. All edge cases are handled gracefully
+10. System is ready for production deployment
+
+================================================================================
+                              FINAL NOTES
+================================================================================
+
+IMPORTANT REMINDERS:
+- Always use server-side API calls (never client-side)
+- Prices must be in cents, not dollars
+- Include x-currency header in all API calls
+- Verify webhook signatures for security
+- Handle webhook retries gracefully
+- Create orders as "pending" before payment
+- Update to "completed" only after webhook confirmation
+- Implement proper logging for debugging
+- Test thoroughly before production deployment
+
+COMMON MISTAKES TO AVOID:
+- Forgetting to multiply prices by 100 for cents
+- Missing required headers in API calls
+- Not verifying webhook signatures
+- Exposing API keys to client-side code
+- Not handling API errors gracefully
+- Forgetting to update order status after payment
+- Not implementing proper logging
+- Skipping security measures
+
+Follow this guide precisely to implement a secure, reliable MoneyMotion payment system. The implementation should be production-ready with proper error handling, security measures, and comprehensive testing.
+
+Good luck with your implementation!

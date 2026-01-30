@@ -142,6 +142,9 @@ export function ProductDetailClient({ product, reviews, gameSlug }: { product: P
   const [selectedImage, setSelectedImage] = useState(0);
   const [activeTab, setActiveTab] = useState<"features" | "reviews" | "faq">("features");
   
+  // Check if product has pricing
+  const hasPricing = product.pricing && product.pricing.length > 0;
+  const selectedTier = hasPricing ? product.pricing[selectedPriceIndex] : null;
   // Checkout modal state
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [customerEmail, setCustomerEmail] = useState("");
@@ -184,7 +187,15 @@ export function ProductDetailClient({ product, reviews, gameSlug }: { product: P
   }, [product.gallery]);
 
   const handleAddToCart = () => {
-    const selectedTier = product.pricing[selectedPriceIndex];
+    if (!selectedTier) {
+      toast({
+        title: "No pricing available",
+        description: "This product doesn't have pricing configured yet.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     addToCart({
       productId: product.id,
       productName: product.name,
@@ -232,7 +243,10 @@ export function ProductDetailClient({ product, reviews, gameSlug }: { product: P
     setCheckoutError(null);
 
     try {
-      const selectedTier = product.pricing[selectedPriceIndex];
+      if (!selectedTier) {
+        throw new Error("No pricing available for this product");
+      }
+      
       let totalAmount = selectedTier.price * quantity;
       
       if (couponDiscount > 0) {
@@ -310,31 +324,7 @@ export function ProductDetailClient({ product, reviews, gameSlug }: { product: P
           </div>
         </div>
 
-        {/* Enhanced Product Hero Banner */}
-        <div className="relative rounded-2xl overflow-hidden mb-12 group">
-          <div className="absolute inset-0 bg-gradient-to-r from-[#dc2626]/40 via-[#dc2626]/20 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#0a0a0a]" />
-          <div 
-            className="absolute inset-0 opacity-30 bg-cover bg-center transform group-hover:scale-105 transition-transform duration-700"
-            style={{ backgroundImage: `url(${product.image})` }}
-          />
-          <div className="relative py-16 px-8 text-center">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#dc2626]/20 border border-[#dc2626]/30 rounded-full mb-6 backdrop-blur-sm">
-              <Sparkles className="w-4 h-4 text-[#dc2626] animate-pulse" />
-              <span className="text-[#dc2626] text-sm font-semibold">Premium Quality Cheat</span>
-            </div>
-            <h1
-              className="text-5xl md:text-7xl font-bold text-white mb-3 tracking-tight"
-              style={{ fontFamily: "Georgia, serif", fontStyle: "italic" }}
-            >
-              {product.name}
-            </h1>
-            <p className="text-[#dc2626] text-2xl md:text-3xl font-medium italic flex items-center justify-center gap-3">
-              {product.game} Cheats
-              <Award className="w-6 h-6" />
-            </p>
-          </div>
-        </div>
+
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16">
           {/* Left: Enhanced Image Gallery */}
@@ -346,7 +336,7 @@ export function ProductDetailClient({ product, reviews, gameSlug }: { product: P
                 <Image
                   src={product.gallery && product.gallery.length > 0 && selectedImage < product.gallery.length
                     ? product.gallery[selectedImage]
-                    : product.image || "/placeholder.svg"}
+                    : "/placeholder.svg"}
                   alt={product.name}
                   fill
                   className="object-cover transform group-hover:scale-110 transition-transform duration-700"
@@ -441,17 +431,26 @@ export function ProductDetailClient({ product, reviews, gameSlug }: { product: P
             <div className="bg-gradient-to-br from-[#111111] to-[#0a0a0a] border-2 border-[#dc2626]/30 rounded-2xl p-6 relative overflow-hidden group">
               <div className="absolute inset-0 bg-gradient-to-r from-[#dc2626]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
               <div className="relative flex items-end justify-between">
-                <div>
-                  <p className="text-white/60 text-sm mb-2 flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    {product.pricing[selectedPriceIndex].duration}
-                  </p>
-                  <p className="text-5xl font-bold text-white flex items-baseline gap-2">
-                    <span className="text-[#dc2626]">$</span>
-                    {product.pricing[selectedPriceIndex].price.toFixed(2)}
-                  </p>
-                  <p className="text-white/40 text-sm mt-1">per license</p>
-                </div>
+                {selectedTier ? (
+                  <>
+                    <div>
+                      <p className="text-white/60 text-sm mb-2 flex items-center gap-2">
+                        <Clock className="w-4 h-4" />
+                        {selectedTier.duration}
+                      </p>
+                      <p className="text-5xl font-bold text-white flex items-baseline gap-2">
+                        <span className="text-[#dc2626]">$</span>
+                        {selectedTier.price.toFixed(2)}
+                      </p>
+                      <p className="text-white/40 text-sm mt-1">per license</p>
+                    </div>
+                  </>
+                ) : (
+                  <div>
+                    <p className="text-white/60 text-sm mb-2">No pricing available</p>
+                    <p className="text-2xl font-bold text-white/40">Contact admin</p>
+                  </div>
+                )}
                 
                 {/* Enhanced Quantity Selector */}
                 <div className="flex items-center gap-3 bg-[#0a0a0a] rounded-xl p-2 border border-[#1a1a1a]">
@@ -478,31 +477,32 @@ export function ProductDetailClient({ product, reviews, gameSlug }: { product: P
                 <Package className="w-4 h-4" />
                 Select Duration
               </p>
-              {product.pricing.map((tier, index) => (
-                <button
-                  key={index}
-                  onClick={() => setSelectedPriceIndex(index)}
-                  className={`relative w-full p-5 rounded-xl border-2 transition-all text-left group overflow-hidden ${
-                    selectedPriceIndex === index
-                      ? "bg-gradient-to-r from-[#dc2626] to-[#ef4444] border-[#dc2626] text-white shadow-2xl shadow-[#dc2626]/40 scale-105"
-                      : "bg-[#111111] border-[#262626] text-white hover:border-[#dc2626]/50 hover:bg-[#1a1a1a] hover:scale-102"
-                  }`}
-                >
-                  {selectedPriceIndex === index && (
-                    <div className="absolute top-3 right-3">
-                      <CheckCircle className="w-6 h-6 text-white" />
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between pr-10">
-                    <div>
-                      <p className="text-xs font-semibold uppercase mb-2 flex items-center gap-2">
-                        <Clock className="w-3 h-3" />
-                        {tier.duration}
-                      </p>
-                      <p className="font-bold text-2xl">${tier.price.toFixed(2)}</p>
-                      {selectedPriceIndex !== index && (
-                        <p className="text-xs text-white/50 mt-1">Save more with longer plans</p>
-                      )}
+              {hasPricing ? (
+                product.pricing.map((tier, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setSelectedPriceIndex(index)}
+                    className={`relative w-full p-5 rounded-xl border-2 transition-all text-left group overflow-hidden ${
+                      selectedPriceIndex === index
+                        ? "bg-gradient-to-r from-[#dc2626] to-[#ef4444] border-[#dc2626] text-white shadow-2xl shadow-[#dc2626]/40 scale-105"
+                        : "bg-[#111111] border-[#262626] text-white hover:border-[#dc2626]/50 hover:bg-[#1a1a1a] hover:scale-102"
+                    }`}
+                  >
+                    {selectedPriceIndex === index && (
+                      <div className="absolute top-3 right-3">
+                        <CheckCircle className="w-6 h-6 text-white" />
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between pr-10">
+                      <div>
+                        <p className="text-xs font-semibold uppercase mb-2 flex items-center gap-2">
+                          <Clock className="w-3 h-3" />
+                          {tier.duration}
+                        </p>
+                        <p className="font-bold text-2xl">${tier.price.toFixed(2)}</p>
+                        {selectedPriceIndex !== index && (
+                          <p className="text-xs text-white/50 mt-1">Save more with longer plans</p>
+                        )}
                     </div>
                     <div className="text-right">
                       <p className="text-xs text-white/60 mb-1 flex items-center gap-1 justify-end">
@@ -518,7 +518,13 @@ export function ProductDetailClient({ product, reviews, gameSlug }: { product: P
                     </div>
                   </div>
                 </button>
-              ))}
+              ))
+              ) : (
+                <div className="p-6 bg-[#111111] border-2 border-[#262626] rounded-xl text-center">
+                  <p className="text-white/60 mb-2">No pricing configured</p>
+                  <p className="text-white/40 text-sm">Contact admin to add pricing variants</p>
+                </div>
+              )}
             </div>
 
             {/* Checkout Error */}
@@ -542,11 +548,12 @@ export function ProductDetailClient({ product, reviews, gameSlug }: { product: P
               
               <button
                 onClick={handleBuyNow}
-                className="relative w-full py-5 rounded-xl font-bold text-lg transition-all duration-300 flex items-center justify-center gap-3 overflow-hidden group bg-gradient-to-r from-[#dc2626] to-[#ef4444] text-white hover:from-[#ef4444] hover:to-[#dc2626] hover:shadow-2xl hover:shadow-[#dc2626]/40 hover:-translate-y-1"
+                disabled={!selectedTier}
+                className="relative w-full py-5 rounded-xl font-bold text-lg transition-all duration-300 flex items-center justify-center gap-3 overflow-hidden group bg-gradient-to-r from-[#dc2626] to-[#ef4444] text-white hover:from-[#ef4444] hover:to-[#dc2626] hover:shadow-2xl hover:shadow-[#dc2626]/40 hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
                 <Zap className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                Buy Now - ${(product.pricing[selectedPriceIndex].price * quantity).toFixed(2)}
+                {selectedTier ? `Buy Now - $${(selectedTier.price * quantity).toFixed(2)}` : 'No pricing available'}
               </button>
             </div>
 
@@ -771,7 +778,7 @@ export function ProductDetailClient({ product, reviews, gameSlug }: { product: P
               <div>
                 <h2 className="text-2xl font-bold text-white">Complete Purchase</h2>
                 <p className="text-white/60 text-sm">
-                  {product.name} - {product.pricing[selectedPriceIndex].duration}
+                  {product.name} - {selectedTier ? selectedTier.duration : 'No pricing'}
                 </p>
               </div>
             </div>
@@ -939,7 +946,7 @@ export function ProductDetailClient({ product, reviews, gameSlug }: { product: P
         product={{
           name: product.name,
           image: product.image,
-          duration: product.pricing[selectedPriceIndex].duration,
+          duration: selectedTier ? selectedTier.duration : 'N/A',
           quantity: quantity,
         }}
       />

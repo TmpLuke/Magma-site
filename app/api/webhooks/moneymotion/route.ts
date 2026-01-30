@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyWebhookSignature } from "@/lib/moneymotion";
+import { verifyWebhookSignature, consumeLicenseFromStock } from "@/lib/moneymotion";
 import { createClient } from "@/lib/supabase/server";
 import { sendPurchaseEmail } from "@/lib/email";
-import { assignLicenseFromStock } from "@/app/actions/admin-license-stock";
 
 interface WebhookPayload {
   checkoutSession: {
@@ -77,44 +76,30 @@ export async function POST(request: NextRequest) {
           .update({ status: "completed", updated_at: new Date().toISOString() })
           .eq("id", order.id);
 
-        // Try to assign a license from stock
-        const expiresAt = calculateExpiryDate(order.duration);
-        
-        const licenseResult = await assignLicenseFromStock({
-          product_id: order.product_id,
-          variant_id: null,
-          product_name: order.product_name,
-          customer_email: order.customer_email,
-          order_id: order.id,
-          expires_at: expiresAt.toISOString(),
-        });
-
-        let licenseKey: string;
-
-        if (licenseResult.success && licenseResult.license_key) {
-          // Successfully assigned from stock
-          licenseKey = licenseResult.license_key;
-          console.log("[Webhook] License assigned from stock:", licenseKey);
-        } else {
-          // No stock available - fallback to generating a key
-          console.warn("[Webhook] No stock available, generating fallback license:", licenseResult.error);
-          licenseKey = generateLicenseKey(order.product_name, order.duration);
-          
-          const { error: licenseError } = await supabase.from("licenses").insert({
-            license_key: licenseKey,
-            order_id: order.id,
-            product_id: order.product_id,
-            product_name: order.product_name,
-            customer_email: order.customer_email,
-            status: "active",
-            expires_at: expiresAt.toISOString(),
-          });
-
-          if (licenseError) {
-            console.error("[Webhook] Failed to create fallback license:", licenseError);
+        // Try to find variant_id from product_pricing
+        let variantId: string | null = null;
+        if (order.product_id && order.duration) {
+          const { data: variant } = await supabase
+            .from("product_pricing")
+            .select("id")
+            .eq("product_id", order.product_id)
+            .eq("duration", order.duration)
+            .single();
+            
+          if (variant) {
+            variantId = variant.id;
           }
         }
 
+        // Get a license key from stock and remove it
+        const licenseResult = await consumeLicenseFromStock({
+          product_id: order.product_id,
+          variant_id: variantId,
+        });
+
+        const expiresAt = calculateExpiryDate(order.duration);
+        const licenseKey = licenseResult.license_key || generateLicenseKey(order.product_name, order.duration);
+        
         console.log("[Webhook] Order completed:", order.order_number, "License:", licenseKey);
 
         // Send purchase confirmation email

@@ -15,37 +15,29 @@ interface AdminShellProps {
 }
 
 export function AdminShell({ children, title, subtitle }: AdminShellProps) {
-  const { sidebarOpen } = useAdminStore();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    const t = setTimeout(() => setMounted(true), 1200);
-    return () => clearTimeout(t);
-  }, []);
-
-  if (!mounted) {
-    return (
-      <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center gap-4">
-        <div className="animate-spin rounded-full h-10 w-10 border-2 border-[#262626] border-t-[#dc2626]" />
-        <p className="text-white/40 text-sm">Loading…</p>
-        <Toaster />
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-[#050505]">
-      <AdminSidebar />
-      <AdminHeader title={title} subtitle={subtitle} />
-      <main
-        className={cn(
-          "pt-16 min-h-screen transition-all duration-300",
-          sidebarOpen ? "pl-64" : "pl-20"
-        )}
-      >
-        <div className="p-6">{children}</div>
-      </main>
+    <div className="min-h-screen bg-[#050505] flex">
+      {/* Sidebar */}
+      <div className="w-64 h-screen bg-gradient-to-b from-[#0a0a0a] to-[#000000] border-r border-[#1a1a1a] fixed left-0 top-0 z-40">
+        <AdminSidebar />
+      </div>
+      
+      {/* Main content */}
+      <div className="flex-1 ml-64">
+        {/* Header */}
+        <div className="h-16 bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-[#1a1a1a] flex items-center justify-between px-6">
+          <div>
+            <h1 className="text-xl font-bold text-white">{title}</h1>
+            {subtitle && <p className="text-sm text-white/50">{subtitle}</p>}
+          </div>
+        </div>
+        
+        {/* Content */}
+        <div className="p-6">
+          {children}
+        </div>
+      </div>
+      
       <Toaster />
     </div>
   );

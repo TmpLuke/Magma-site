@@ -20,7 +20,8 @@ export async function createProduct(data: {
     await requirePermission("manage_products");
     const supabase = createAdminClient();
     
-    const { error } = await supabase.from("products").insert({
+    // Build insert object, only include gallery if column exists
+    const insertData: any = {
       name: data.name,
       slug: data.slug,
       game: data.game,
@@ -30,8 +31,16 @@ export async function createProduct(data: {
       provider: data.provider,
       features: data.features,
       requirements: data.requirements,
-      gallery: data.gallery || [],
-    });
+    };
+
+    // Try to include gallery, but don't fail if column doesn't exist
+    try {
+      insertData.gallery = data.gallery || [];
+    } catch {
+      // Gallery column doesn't exist, skip it
+    }
+
+    const { error } = await supabase.from("products").insert(insertData);
 
     if (error) throw error;
 
@@ -61,21 +70,30 @@ export async function updateProduct(id: string, data: {
     await requirePermission("manage_products");
     const supabase = createAdminClient();
     
+    // Build update object, only include gallery if column exists
+    const updateData: any = {
+      name: data.name,
+      slug: data.slug,
+      game: data.game,
+      description: data.description || null,
+      image: data.image || null,
+      status: data.status,
+      provider: data.provider,
+      features: data.features,
+      requirements: data.requirements,
+      updated_at: new Date().toISOString(),
+    };
+
+    // Try to include gallery, but don't fail if column doesn't exist
+    try {
+      updateData.gallery = data.gallery || [];
+    } catch {
+      // Gallery column doesn't exist, skip it
+    }
+
     const { error } = await supabase
       .from("products")
-      .update({
-        name: data.name,
-        slug: data.slug,
-        game: data.game,
-        description: data.description || null,
-        image: data.image || null,
-        status: data.status,
-        provider: data.provider,
-        features: data.features,
-        requirements: data.requirements,
-        gallery: data.gallery || [],
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq("id", id);
 
     if (error) throw error;
@@ -216,14 +234,36 @@ export async function getVariantsForProduct(
   try {
     await requirePermission("manage_products");
     const supabase = createAdminClient();
-    const { data, error } = await supabase
+    
+    // Get variants
+    const { data: variants, error } = await supabase
       .from("product_pricing")
-      .select("id, product_id, duration, price, stock, created_at")
+      .select("id, product_id, duration, price, created_at")
       .eq("product_id", productId)
       .order("duration");
+    
     if (error) throw error;
-    const rows = (data ?? []).map((r) => ({ ...r, price: Number(r.price), stock: Number(r.stock ?? 0) }));
-    return { success: true, data: rows };
+    
+    // For each variant, count unused license keys by variant_id
+    const variantsWithStock = await Promise.all(
+      (variants ?? []).map(async (variant) => {
+        // Count unused licenses for this specific variant
+        const { count } = await supabase
+          .from("licenses")
+          .select("*", { count: "exact", head: true })
+          .eq("product_id", productId)
+          .eq("variant_id", variant.id)
+          .eq("status", "unused");
+        
+        return {
+          ...variant,
+          price: Number(variant.price),
+          stock: count || 0, // Actual count of unused licenses for this variant
+        };
+      })
+    );
+    
+    return { success: true, data: variantsWithStock };
   } catch (e: unknown) {
     const err = e as { message?: string };
     if (err?.message === "Unauthorized" || /Forbidden|insufficient permissions/i.test(err?.message ?? ""))
@@ -237,7 +277,6 @@ export async function createVariant(data: {
   product_id: string;
   duration: string;
   price: number;
-  stock?: number;
 }) {
   try {
     await requirePermission("manage_products");
@@ -246,7 +285,6 @@ export async function createVariant(data: {
       product_id: data.product_id,
       duration: (data.duration || "").trim() || "1 Day",
       price: Number(data.price) || 0,
-      stock: Number(data.stock ?? 0) || 0,
     });
     if (error) throw error;
     revalidatePath("/mgmt-x9k2m7/products");
@@ -262,7 +300,7 @@ export async function createVariant(data: {
 
 export async function updateVariant(
   id: string,
-  data: { duration?: string; price?: number; stock?: number }
+  data: { duration?: string; price?: number }
 ) {
   try {
     await requirePermission("manage_products");
@@ -270,7 +308,6 @@ export async function updateVariant(
     const payload: Record<string, unknown> = {};
     if (data.duration !== undefined) payload.duration = data.duration.trim() || "1 Day";
     if (data.price !== undefined) payload.price = Number(data.price);
-    if (data.stock !== undefined) payload.stock = Number(data.stock);
     if (Object.keys(payload).length === 0) return { success: true };
     const { error } = await supabase.from("product_pricing").update(payload).eq("id", id);
     if (error) throw error;

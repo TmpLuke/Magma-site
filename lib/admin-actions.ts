@@ -108,6 +108,23 @@ export async function updateOrderStatusInDB(id: string, status: string) {
   }
 }
 
+export async function deleteOrderFromDB(id: string) {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.from("orders").delete().eq("id", id);
+
+    if (error) {
+      console.error("[Admin] Delete order error:", error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("[Admin] Delete order exception:", error);
+    return { success: false, error: "Failed to delete order" };
+  }
+}
+
 // License Actions
 export async function createLicenseInDB(data: {
   license_key: string;
@@ -170,6 +187,23 @@ export async function revokeLicenseInDB(id: string) {
   } catch (error) {
     console.error("[Admin] Revoke license exception:", error);
     return { success: false, error: "Failed to revoke license" };
+  }
+}
+
+export async function deleteLicenseFromDB(id: string) {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.from("licenses").delete().eq("id", id);
+
+    if (error) {
+      console.error("[Admin] Delete license error:", error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("[Admin] Delete license exception:", error);
+    return { success: false, error: "Failed to delete license" };
   }
 }
 

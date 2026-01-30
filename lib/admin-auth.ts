@@ -30,13 +30,14 @@ export async function getAuthContext(): Promise<AuthContext> {
   const supabase = createAdminClient();
   const { data: member, error } = await supabase
     .from("team_members")
-    .select("id, permissions")
+    .select("id")
     .eq("id", staffId)
-    .eq("status", "active")
+    .eq("is_active", true)
     .single();
 
   if (error || !member) return null;
-  const permissions = Array.isArray(member.permissions) ? member.permissions : [];
+  // Note: permissions column is missing in schema, so we default to empty or handle it based on role if needed
+  const permissions: string[] = []; 
   return { type: "staff", id: member.id, permissions };
 }
 

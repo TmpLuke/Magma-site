@@ -12,6 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { RefreshCw, Plus, Edit, Trash2, Package, AlertCircle, Check, X, Image as ImageIcon, Tag, Gamepad2, DollarSign, Server } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { createProduct, updateProduct, deleteProduct, forceDeleteProduct, getOrdersAndLicensesForProduct, getVariantsForProduct, createVariant, updateVariant, deleteVariant, type ProductBlockers, type ProductVariantRow } from "@/app/actions/admin-products";
+import { ImageUploader } from "@/components/admin/image-uploader";
+import { GalleryUploader } from "@/components/admin/gallery-uploader";
 
 interface Product {
   id: string;
@@ -52,7 +54,7 @@ export default function ProductsPage() {
   const [deleteBlockersLoading, setDeleteBlockersLoading] = useState(false);
   const [variants, setVariants] = useState<ProductVariantRow[]>([]);
   const [variantsLoading, setVariantsLoading] = useState(false);
-  const [variantForm, setVariantForm] = useState({ duration: "", price: "", stock: "0" });
+  const [variantForm, setVariantForm] = useState({ duration: "", price: "" });
   const [editingVariant, setEditingVariant] = useState<ProductVariantRow | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState<ProductFormData>({
@@ -304,11 +306,10 @@ export default function ProductsPage() {
         product_id: selectedProduct.id,
         duration,
         price,
-        stock: parseInt(variantForm.stock, 10) || 0,
       });
       if (!res.success) throw new Error(res.error);
       toast({ title: "Variant added", className: "border-green-500/20 bg-green-500/10" });
-      setVariantForm({ duration: "", price: "", stock: "0" });
+      setVariantForm({ duration: "", price: "" });
       const next = await getVariantsForProduct(selectedProduct.id);
       if (next.success && next.data) setVariants(next.data);
     } catch (e: any) {
@@ -318,7 +319,7 @@ export default function ProductsPage() {
     }
   }
 
-  async function handleUpdateVariant(v: ProductVariantRow, updates: { duration?: string; price?: number; stock?: number }) {
+  async function handleUpdateVariant(v: ProductVariantRow, updates: { duration?: string; price?: number }) {
     try {
       setProcessing("variant-update");
       const res = await updateVariant(v.id, updates);
@@ -655,19 +656,15 @@ export default function ProductsPage() {
                     <option value="maintenance">Maintenance</option>
                   </select>
                 </div>
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-white/70">Image URL</label>
-                  <div className="relative">
-                    <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-                    <Input
-                      value={formData.image}
-                      onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                      placeholder="/images/product.jpg"
-                      className="bg-[#1a1a1a] border-[#262626] text-white placeholder:text-white/30 focus:border-[#dc2626]/50 pl-10 transition-colors"
-                    />
-                  </div>
-                </div>
               </div>
+
+              {/* Cover Image Upload */}
+              <ImageUploader
+                value={formData.image}
+                onChange={(url) => setFormData({ ...formData, image: url })}
+                label="Cover Image (Front Cover)"
+                description="This image appears on product cards and store listings"
+              />
             </div>
 
             {/* Gallery Images - In-Game & Menu Images */}
@@ -676,47 +673,12 @@ export default function ProductsPage() {
                 <ImageIcon className="w-4 h-4" />
                 Gallery Images (In-Game & Menu)
               </h3>
-              <div className="space-y-3">
-                <div className="flex gap-2">
-                  <Input
-                    value={galleryInput}
-                    onChange={(e) => setGalleryInput(e.target.value)}
-                    placeholder="/images/in-game-1.jpg"
-                    className="bg-[#1a1a1a] border-[#262626] text-white placeholder:text-white/30 focus:border-[#dc2626]/50 transition-colors"
-                    onKeyPress={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        addGalleryImage();
-                      }
-                    }}
-                  />
-                  <Button
-                    onClick={addGalleryImage}
-                    size="sm"
-                    className="bg-[#dc2626] hover:bg-[#ef4444] text-white"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
-                {formData.gallery.length > 0 && (
-                  <div className="grid grid-cols-3 gap-2">
-                    {formData.gallery.map((url, idx) => (
-                      <div key={idx} className="relative group">
-                        <div className="relative aspect-video bg-[#0a0a0a] border border-[#262626] rounded-lg overflow-hidden">
-                          <img src={url} alt={`Gallery ${idx + 1}`} className="w-full h-full object-cover" />
-                          <button
-                            onClick={() => removeGalleryImage(idx)}
-                            className="absolute top-1 right-1 p-1 bg-red-500/80 hover:bg-red-500 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <p className="text-xs text-white/40">Add in-game screenshots and menu images. These will appear as thumbnails below the main product image.</p>
-              </div>
+              <GalleryUploader
+                images={formData.gallery}
+                onChange={(images) => setFormData({ ...formData, gallery: images })}
+                maxImages={10}
+                description="Add in-game screenshots and menu images. These appear on the product detail page."
+              />
             </div>
 
             {/* Details */}
@@ -879,18 +841,15 @@ export default function ProductsPage() {
                     <option value="maintenance">Maintenance</option>
                   </select>
                 </div>
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-white/70">Image URL</label>
-                  <div className="relative">
-                    <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-                    <Input
-                      value={formData.image}
-                      onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                      className="bg-[#1a1a1a] border-[#262626] text-white focus:border-blue-500/50 pl-10 transition-colors"
-                    />
-                  </div>
-                </div>
               </div>
+
+              {/* Cover Image Upload */}
+              <ImageUploader
+                value={formData.image}
+                onChange={(url) => setFormData({ ...formData, image: url })}
+                label="Cover Image (Front Cover)"
+                description="This image appears on product cards and store listings"
+              />
             </div>
 
             {/* Gallery Images - In-Game & Menu Images */}
@@ -899,47 +858,12 @@ export default function ProductsPage() {
                 <ImageIcon className="w-4 h-4" />
                 Gallery Images (In-Game & Menu)
               </h3>
-              <div className="space-y-3">
-                <div className="flex gap-2">
-                  <Input
-                    value={galleryInput}
-                    onChange={(e) => setGalleryInput(e.target.value)}
-                    placeholder="/images/in-game-1.jpg"
-                    className="bg-[#1a1a1a] border-[#262626] text-white placeholder:text-white/30 focus:border-blue-500/50 transition-colors"
-                    onKeyPress={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        addGalleryImage();
-                      }
-                    }}
-                  />
-                  <Button
-                    onClick={addGalleryImage}
-                    size="sm"
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
-                {formData.gallery.length > 0 && (
-                  <div className="grid grid-cols-3 gap-2">
-                    {formData.gallery.map((url, idx) => (
-                      <div key={idx} className="relative group">
-                        <div className="relative aspect-video bg-[#0a0a0a] border border-[#262626] rounded-lg overflow-hidden">
-                          <img src={url} alt={`Gallery ${idx + 1}`} className="w-full h-full object-cover" />
-                          <button
-                            onClick={() => removeGalleryImage(idx)}
-                            className="absolute top-1 right-1 p-1 bg-red-500/80 hover:bg-red-500 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <p className="text-xs text-white/40">Add in-game screenshots and menu images. These will appear as thumbnails below the main product image.</p>
-              </div>
+              <GalleryUploader
+                images={formData.gallery}
+                onChange={(images) => setFormData({ ...formData, gallery: images })}
+                maxImages={10}
+                description="Add in-game screenshots and menu images. These appear on the product detail page."
+              />
             </div>
 
             {/* Variants & pricing */}
@@ -976,18 +900,14 @@ export default function ProductsPage() {
                                 id={`edit-price-${v.id}`}
                                 className="w-24 bg-[#0a0a0a] border-[#262626] text-white text-sm"
                               />
-                              <Input
-                                type="number"
-                                placeholder="Stock"
-                                defaultValue={v.stock}
-                                id={`edit-stock-${v.id}`}
-                                className="w-20 bg-[#0a0a0a] border-[#262626] text-white text-sm"
-                              />
+                              <div className="flex items-center gap-1 px-3 py-2 bg-[#0a0a0a] border border-[#262626] rounded-md text-white/60 text-sm">
+                                <span className="text-xs">Stock:</span>
+                                <span className="font-medium">{v.stock}</span>
+                              </div>
                               <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => {
                                 const dur = (document.getElementById(`edit-duration-${v.id}`) as HTMLInputElement)?.value?.trim() || v.duration;
                                 const pr = parseFloat((document.getElementById(`edit-price-${v.id}`) as HTMLInputElement)?.value ?? "0");
-                                const st = parseInt((document.getElementById(`edit-stock-${v.id}`) as HTMLInputElement)?.value ?? "0", 10);
-                                handleUpdateVariant(v, { duration: dur, price: isNaN(pr) ? v.price : pr, stock: isNaN(st) ? v.stock : st });
+                                handleUpdateVariant(v, { duration: dur, price: isNaN(pr) ? v.price : pr });
                               }}>
                                 <Check className="w-3 h-3 mr-1" /> Save
                               </Button>
@@ -1030,17 +950,11 @@ export default function ProductsPage() {
                         onChange={(e) => setVariantForm({ ...variantForm, price: e.target.value })}
                         className="w-24 bg-[#1a1a1a] border-[#262626] text-white"
                       />
-                      <Input
-                        type="number"
-                        placeholder="Stock"
-                        value={variantForm.stock}
-                        onChange={(e) => setVariantForm({ ...variantForm, stock: e.target.value })}
-                        className="w-20 bg-[#1a1a1a] border-[#262626] text-white"
-                      />
                       <Button size="sm" onClick={handleAddVariant} disabled={processing === "variant-add"} className="bg-blue-600 hover:bg-blue-700 text-white">
                         {processing === "variant-add" ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4 mr-1" />}
                         Add variant
                       </Button>
+                      <p className="text-xs text-white/40">Stock is auto-calculated from license keys</p>
                     </div>
                   </>
                 )}

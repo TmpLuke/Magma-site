@@ -251,22 +251,24 @@ export function AuthDropdown() {
         </div>
       )}
 
-      <div ref={dropdownRef} className="relative">
-        <button
-          onClick={() => {
-            setIsOpen(!isOpen);
-            setError("");
-          }}
-          className="group flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#dc2626] to-[#ef4444] hover:from-[#ef4444] hover:to-[#dc2626] text-white text-sm font-semibold rounded-lg transition-all duration-300 hover:shadow-lg hover:shadow-[#dc2626]/50"
-        >
-          <UserCircle className="w-4 h-4" />
-          <span>Sign In</span>
-          <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`} />
-        </button>
-      </div>
+      <div className="flex items-center gap-3">
+        {/* Existing user? Sign In dropdown */}
+        <div ref={dropdownRef} className="relative">
+          <button
+            onClick={() => {
+              setActiveTab("signin");
+              setIsOpen(!isOpen);
+              setError("");
+            }}
+            className="group flex items-center gap-2 px-4 py-2 text-white/70 hover:text-white text-sm font-medium transition-all duration-200 hover:bg-[#1a1a1a] rounded-lg"
+          >
+            <span>Existing user? Sign In</span>
+            <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isOpen && activeTab === "signin" ? "rotate-180" : ""}`} />
+          </button>
 
-      {isOpen && (
-        <div className="absolute top-full right-0 mt-2 w-96 bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-[#1a1a1a] rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+          {/* Dropdown positioned under Sign In button */}
+          {isOpen && (
+            <div className="absolute top-full left-0 mt-2 w-96 bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-[#1a1a1a] rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
           {/* Enhanced Tabs */}
           <div className="relative flex border-b border-[#1a1a1a]">
             <div className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-[#dc2626] to-[#ef4444] transition-all duration-300"
@@ -455,7 +457,21 @@ export function AuthDropdown() {
             )}
           </div>
         </div>
-      )}
+          )}
+        </div>
+
+        {/* Sign Up button */}
+        <button
+          onClick={() => {
+            setActiveTab("signup");
+            setIsOpen(true);
+            setError("");
+          }}
+          className="px-4 py-2 bg-gradient-to-r from-[#dc2626] to-[#ef4444] hover:from-[#ef4444] hover:to-[#dc2626] text-white text-sm font-semibold rounded-lg transition-all duration-300 hover:shadow-lg hover:shadow-[#dc2626]/50"
+        >
+          Sign Up
+        </button>
+      </div>
     </>
   );
 }

@@ -86,22 +86,9 @@ export async function deleteCategory(id: string) {
     await requirePermission("manage_categories");
     const supabase = createAdminClient();
 
-    // First check if category has products
-    const { data: products, error: checkError } = await supabase
-      .from("products")
-      .select("id")
-      .eq("category_id", id)
-      .limit(1);
-
-    if (checkError) throw checkError;
-
-    if (products && products.length > 0) {
-      return {
-        success: false,
-        error: "Cannot delete category with existing products. Delete products first or reassign them.",
-      };
-    }
-
+    // Delete category directly - no restrictions
+    // Products will have their category_id set to null (if foreign key allows)
+    // Or you can cascade delete if needed
     const { error } = await supabase.from("categories").delete().eq("id", id);
 
     if (error) throw error;

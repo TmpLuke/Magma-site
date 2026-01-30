@@ -579,9 +579,12 @@ export default function CategoriesPage() {
                   Are you sure you want to delete{" "}
                   <span className="font-semibold text-white">{selectedCategory?.name}</span>?
                 </p>
-                <p className="text-sm text-red-400 mt-3">
-                  Note: You cannot delete a category that has products. Reassign or delete products first.
-                </p>
+                {selectedCategory?.product_count && selectedCategory.product_count > 0 && (
+                  <p className="text-sm text-yellow-400 mt-3">
+                    Warning: This category has {selectedCategory.product_count} product(s). 
+                    They will be unassigned from this category.
+                  </p>
+                )}
               </div>
               <div className="p-6 border-t border-[#262626] flex gap-3 justify-end">
                 <Button

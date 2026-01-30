@@ -59,8 +59,7 @@ export function AdminHeader({ title, subtitle }: AdminHeaderProps) {
   return (
     <header
       className={cn(
-        "fixed top-0 right-0 h-16 bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-[#1a1a1a] z-30 flex items-center justify-between px-6 transition-all duration-300",
-        isOpen ? "left-64" : "left-20"
+        "fixed top-0 right-0 h-16 bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-[#1a1a1a] z-30 flex items-center justify-between px-6 transition-all duration-300 left-64"
       )}
     >
       {/* Title */}

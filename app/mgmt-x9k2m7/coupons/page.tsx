@@ -15,11 +15,12 @@ import { createCoupon, updateCoupon, deleteCoupon, toggleCouponStatus } from "@/
 interface Coupon {
   id: string;
   code: string;
-  discount_percent: number;
+  discount_type: string;
+  discount_value: number;
   max_uses: number | null;
   current_uses: number;
   is_active: boolean;
-  valid_until: string | null;
+  expires_at: string | null;
   created_at: string;
 }
 
@@ -214,9 +215,9 @@ export default function CouponsPage() {
     setSelectedCoupon(coupon);
     setFormData({
       code: coupon.code,
-      discount_percent: coupon.discount_percent.toString(),
+      discount_percent: coupon.discount_value.toString(),
       max_uses: coupon.max_uses?.toString() || "",
-      valid_until: coupon.valid_until ? new Date(coupon.valid_until).toISOString().split('T')[0] : "",
+      valid_until: coupon.expires_at ? new Date(coupon.expires_at).toISOString().split('T')[0] : "",
     });
     setShowEditModal(true);
   }
@@ -240,7 +241,7 @@ export default function CouponsPage() {
   const activeCoupons = coupons.filter(c => c.is_active).length;
   const totalUses = coupons.reduce((sum, c) => sum + c.current_uses, 0);
   const avgDiscount = coupons.length > 0 
-    ? Math.round(coupons.reduce((sum, c) => sum + c.discount_percent, 0) / coupons.length)
+    ? Math.round(coupons.reduce((sum, c) => sum + c.discount_value, 0) / coupons.length)
     : 0;
 
   const columns = [
@@ -259,7 +260,7 @@ export default function CouponsPage() {
             </code>
             <div className="flex items-center gap-1.5 mt-0.5">
               <Percent className="w-3 h-3 text-white/40" />
-              <p className="text-xs text-white/50 font-medium">{coupon.discount_percent}% off</p>
+              <p className="text-xs text-white/50 font-medium">{coupon.discount_value}% off</p>
             </div>
           </div>
         </div>
@@ -272,7 +273,7 @@ export default function CouponsPage() {
       render: (coupon: Coupon) => (
         <div className="flex items-center gap-2">
           <div className="px-3 py-1.5 bg-gradient-to-r from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20 rounded-lg">
-            <span className="text-emerald-400 font-bold text-sm">{coupon.discount_percent}%</span>
+            <span className="text-emerald-400 font-bold text-sm">{coupon.discount_value}%</span>
           </div>
         </div>
       ),

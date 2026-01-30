@@ -1,0 +1,582 @@
+================================================================================
+                    MONEYMOTION PAYMENT INTEGRATION GUIDE
+                         Complete Implementation Documentation
+================================================================================
+
+OVERVIEW:
+MoneyMotion is a payment processor that handles credit card payments, crypto payments, 
+and provides webhook notifications for payment events. This guide provides everything 
+needed to implement MoneyMotion payments in a Next.js application.
+
+================================================================================
+                              API CONFIGURATION
+================================================================================
+
+REQUIRED ENVIRONMENT VARIABLES:
+```
+MONEYMOTION_API_KEY=your_moneymotion_api_key_here
+MONEYMOTION_WEBHOOK_SECRET=your_webhook_secret_here
+NEXT_PUBLIC_SITE_URL=https://your-domain.com
+```
+
+API ENDPOINTS:
+- Base URL: https://api.moneymotion.io
+- Create Checkout: POST /checkoutSessions.createCheckoutSession
+- Get Status: GET /checkoutSessions.getCompletedOrPendingCheckoutSessionInfo
+- Checkout URL: https://moneymotion.io/checkout/{sessionId}
+
+AUTHENTICATION:
+- Header: x-api-key: YOUR_API_KEY
+- Currency Header: x-currency: USD (required)
+- Content-Type: application/json
+
+================================================================================
+                           CORE IMPLEMENTATION FILES
+================================================================================
+
+1. MONEYMOTION LIBRARY (lib/moneymotion.ts):
+```typescript
+"use server";
+
+import crypto from 'crypto';
+
+const MONEYMOTION_API_URL = "https://api.moneymotion.io";
+
+interface LineItem {
+  name: string;
+  description: string;
+  pricePerItemInCents: number;
+  quantity: number;
+}
+
+interface CreateCheckoutParams {
+  description: string;
+  successUrl: string;
+  cancelUrl: string;
+  failureUrl: string;
+  customerEmail: string;
+  lineItems: LineItem[];
+}
+
+interface CheckoutSessionResponse {
+  result: {
+    data: {
+      json: {
+        checkoutSessionId: string;
+      };
+    };
+  };
+}
+
+interface CheckoutStatusResponse {
+  result: {
+    data: {
+      json: {
+        id: string;
+        createdAt: string;
+        status: 'pending' | 'completed' | 'refunded' | 'expired' | 'disputed';
+        checkoutSessionItems: Array<{
+          name: string;
+          pricePerItemInCents: number;
+          quantity: number;
+          description: string;
+        }>;
+        checkoutSessionRedirectUrls: Array<{
+          url: string;
+          type: string;
+        }>;
+        customerEmail: string;
+        totalPrice: {
+          amountInCentsUsd: number;
+          amountInCents: number;
+          currency: string;
+        };
+      };
+    };
+  };
+}
+
+// Create checkout session
+export async function createCheckoutSession(params: CreateCheckoutParams) {
+  try {
+    const apiKey = process.env.MONEYMOTION_API_KEY;
+    
+    if (!apiKey) {
+      return { success: false, error: "API key not configured" };
+    }
+
+    const requestBody = {
+      json: {
+        description: params.description,
+        urls: {
+          success: params.successUrl,
+          cancel: params.cancelUrl,
+          failure: params.failureUrl,
+        },
+        userInfo: {
+          email: params.customerEmail,
+        },
+        lineItems: params.lineItems,
+      },
+    };
+
+    const response = await fetch(`${MONEYMOTION_API_URL}/checkoutSessions.createCheckoutSession`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "x-currency": "USD",
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return {
+        success: false,
+        error: `API error: ${response.status} - ${errorText}`,
+      };
+    }
+
+    const data: CheckoutSessionResponse = await response.json();
+    const checkoutSessionId = data?.result?.data?.json?.checkoutSessionId;
+
+    if (!checkoutSessionId) {
+      return {
+        success: false,
+        error: "Invalid API response - no session ID",
+      };
+    }
+
+    const checkoutUrl = `https://moneymotion.io/checkout/${checkoutSessionId}`;
+
+    return {
+      success: true,
+      checkoutSessionId,
+      checkoutUrl,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: `Exception: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
+
+// Get checkout status
+export async function getCheckoutStatus(checkoutId: string) {
+  try {
+    const apiKey = process.env.MONEYMOTION_API_KEY;
+    
+    if (!apiKey) {
+      return { success: false, error: "API key not configured" };
+    }
+
+    const url = `${MONEYMOTION_API_URL}/checkoutSessions.getCompletedOrPendingCheckoutSessionInfo?json.checkoutId=${checkoutId}`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "x-api-key": apiKey,
+        "x-currency": "USD",
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return {
+        success: false,
+        error: `API error: ${response.status}`,
+      };
+    }
+
+    const data: CheckoutStatusResponse = await response.json();
+    const sessionData = data?.result?.data?.json;
+
+    if (!sessionData) {
+      return {
+        success: false,
+        error: "Invalid API response",
+      };
+    }
+
+    return {
+      success: true,
+      data: sessionData,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: "Failed to get checkout status",
+    };
+  }
+}
+
+// Webhook signature verification
+export async function hmacSha512Sign(secret: string, data: string): Promise<string> {
+  return crypto.createHmac("sha512", secret).update(data).digest("base64");
+}
+
+export async function verifyWebhookSignature(
+  rawBody: string,
+  signatureHeader: string,
+  secret: string
+): Promise<boolean> {
+  try {
+    const computedHash = await hmacSha512Sign(secret, rawBody);
+    return crypto.timingSafeEqual(
+      Buffer.from(computedHash),
+      Buffer.from(signatureHeader)
+    );
+  } catch (error) {
+    console.error("[MoneyMotion] Signature verification error:", error);
+    return false;
+  }
+}
+```
+
+2. WEBHOOK HANDLER (app/api/webhooks/moneymotion/route.ts):
+```typescript
+import { NextRequest, NextResponse } from "next/server";
+import { verifyWebhookSignature } from "@/lib/moneymotion";
+
+interface WebhookPayload {
+  checkoutSession: {
+    id: string;
+    status: 'completed' | 'refunded' | 'expired' | 'disputed';
+    totalInCents: number;
+    storeId: string;
+  };
+  event: 'checkout_session:new' | 'checkout_session:complete' | 'checkout_session:refunded' | 'checkout_session:expired' | 'checkout_session:disputed';
+  customer: {
+    email: string;
+    paymentMethodInfo?: {
+      type: string;
+      lastFourDigits?: string;
+      cardBrand?: string;
+    };
+  };
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const rawBody = await request.text();
+    const signature = request.headers.get("x-moneymotion-signature");
+    const webhookSecret = process.env.MONEYMOTION_WEBHOOK_SECRET;
+
+    if (!webhookSecret) {
+      console.error("[Webhook] No webhook secret configured");
+      return NextResponse.json({ error: "Webhook secret not configured" }, { status: 500 });
+    }
+
+    if (!signature) {
+      console.error("[Webhook] No signature header");
+      return NextResponse.json({ error: "No signature provided" }, { status: 401 });
+    }
+
+    // Verify signature
+    const isValid = await verifyWebhookSignature(rawBody, signature, webhookSecret);
+
+    if (!isValid) {
+      console.error("[Webhook] Invalid signature");
+      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+    }
+
+    const payload: WebhookPayload = JSON.parse(rawBody);
+    console.log("[Webhook] Event:", payload.event, "Session:", payload.checkoutSession.id);
+
+    // Handle different webhook events
+    switch (payload.event) {
+      case "checkout_session:complete": {
+        // Payment completed successfully
+        // Update order status, create license, send email
+        console.log("[Webhook] Payment completed for:", payload.customer.email);
+        break;
+      }
+
+      case "checkout_session:refunded": {
+        // Payment was refunded
+        // Update order status, revoke license
+        console.log("[Webhook] Payment refunded for:", payload.customer.email);
+        break;
+      }
+
+      default:
+        console.log("[Webhook] Unhandled event:", payload.event);
+    }
+
+    return NextResponse.json({ received: true });
+  } catch (error) {
+    console.error("[Webhook] Error:", error);
+    return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
+  }
+}
+```
+
+3. PURCHASE PROCESSING (lib/purchase-actions.ts):
+```typescript
+"use server";
+
+import { createCheckoutSession } from "@/lib/moneymotion";
+
+export interface PurchaseData {
+  productId: string;
+  productName: string;
+  duration: string;
+  price: number;
+  customerEmail: string;
+  couponCode?: string;
+}
+
+export interface PurchaseResult {
+  success: boolean;
+  orderId?: string;
+  orderNumber?: string;
+  checkoutUrl?: string;
+  sessionId?: string;
+  error?: string;
+}
+
+export async function processPurchase(data: PurchaseData): Promise<PurchaseResult> {
+  try {
+    // Create order in database as "pending"
+    const orderNumber = generateOrderNumber();
+    
+    // Calculate final price with discounts
+    let finalPrice = data.price;
+    if (data.couponCode) {
+      // Apply coupon discount logic
+      finalPrice = applyDiscount(data.price, data.couponCode);
+    }
+    
+    // Create MoneyMotion checkout session
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    
+    const checkoutParams = {
+      description: `${data.productName} - ${data.duration}`,
+      successUrl: `${baseUrl}/payment/success?order=${orderNumber}`,
+      cancelUrl: `${baseUrl}/payment/cancelled?order=${orderNumber}`,
+      failureUrl: `${baseUrl}/payment/cancelled?order=${orderNumber}`,
+      customerEmail: data.customerEmail,
+      lineItems: [
+        {
+          name: data.productName,
+          description: `${data.productName} - ${data.duration}`,
+          pricePerItemInCents: Math.round(finalPrice * 100),
+          quantity: 1,
+        },
+      ],
+    };
+    
+    const result = await createCheckoutSession(checkoutParams);
+    
+    if (!result.success || !result.checkoutSessionId) {
+      return {
+        success: false,
+        error: result.error || "Failed to create checkout session",
+      };
+    }
+    
+    return {
+      success: true,
+      orderId: "order-id",
+      orderNumber,
+      checkoutUrl: result.checkoutUrl,
+      sessionId: result.checkoutSessionId,
+    };
+    
+  } catch (error) {
+    console.error("[Purchase] Error:", error);
+    return { success: false, error: "An unexpected error occurred" };
+  }
+}
+
+function generateOrderNumber(): string {
+  const year = new Date().getFullYear();
+  const orderNum = Math.floor(Math.random() * 9000) + 1000;
+  return `ORDER-${year}-${orderNum}`;
+}
+
+function applyDiscount(price: number, couponCode: string): number {
+  // Implement coupon logic
+  return price;
+}
+```
+
+================================================================================
+                              CHECKOUT FLOW
+================================================================================
+
+STEP 1: CREATE CHECKOUT SESSION
+- User clicks "Buy Now" or "Checkout"
+- Call processPurchase() with product details
+- Creates pending order in database
+- Calls MoneyMotion API to create checkout session
+- Returns checkout URL
+
+STEP 2: REDIRECT TO MONEYMOTION
+- Redirect user to returned checkout URL
+- User completes payment on MoneyMotion's hosted page
+- MoneyMotion handles all payment processing
+
+STEP 3: WEBHOOK PROCESSING
+- MoneyMotion sends webhook to your endpoint
+- Verify webhook signature for security
+- Update order status based on payment result
+- Send confirmation email to customer
+- Activate purchased product/service
+
+STEP 4: REDIRECT HANDLING
+- User redirected to success/cancel/failure URL
+- Display appropriate message to user
+- Provide order details and next steps
+
+================================================================================
+                            WEBHOOK EVENTS
+================================================================================
+
+SUPPORTED EVENTS:
+- checkout_session:new - New checkout session created
+- checkout_session:complete - Payment completed successfully
+- checkout_session:refunded - Payment was refunded
+- checkout_session:expired - Checkout session expired
+- checkout_session:disputed - Payment disputed/chargeback
+
+WEBHOOK PAYLOAD STRUCTURE:
+```json
+{
+  "checkoutSession": {
+    "id": "session_123",
+    "status": "completed",
+    "totalInCents": 2999,
+    "storeId": "store_456"
+  },
+  "event": "checkout_session:complete",
+  "customer": {
+    "email": "customer@example.com",
+    "paymentMethodInfo": {
+      "type": "card",
+      "lastFourDigits": "4242",
+      "cardBrand": "visa"
+    }
+  }
+}
+```
+
+WEBHOOK SECURITY:
+- Signature header: x-moneymotion-signature
+- Algorithm: HMAC-SHA512
+- Always verify signatures before processing
+
+================================================================================
+                              ERROR HANDLING
+================================================================================
+
+COMMON ERRORS:
+1. Invalid API Key - Check environment variables
+2. Missing Currency Header - Always include x-currency: USD
+3. Invalid Webhook Signature - Verify secret and algorithm
+4. Network Timeouts - Implement retry logic
+5. Invalid Line Items - Check price format (cents, not dollars)
+
+ERROR RESPONSE FORMAT:
+```json
+{
+  "success": false,
+  "error": "Descriptive error message"
+}
+```
+
+DEBUGGING TIPS:
+- Enable detailed logging in development
+- Check API key format and permissions
+- Verify webhook endpoint is publicly accessible
+- Test with MoneyMotion's sandbox environment first
+
+================================================================================
+                              TESTING
+================================================================================
+
+SANDBOX ENVIRONMENT:
+- Use test API keys for development
+- MoneyMotion provides test card numbers
+- Webhook events can be simulated
+
+TEST CARD NUMBERS:
+- 4242424242424242 (Visa - Success)
+- 4000000000000002 (Visa - Declined)
+- 4000000000009995 (Visa - Insufficient Funds)
+
+WEBHOOK TESTING:
+- Use ngrok or similar for local webhook testing
+- Verify signature validation works correctly
+- Test all webhook event types
+
+================================================================================
+                           PRODUCTION CHECKLIST
+================================================================================
+
+BEFORE GOING LIVE:
+□ Replace test API keys with production keys
+□ Update webhook URLs to production endpoints
+□ Test complete purchase flow end-to-end
+□ Verify webhook signature validation
+□ Set up monitoring and error alerting
+□ Test refund and dispute handling
+□ Verify SSL certificates are valid
+□ Test with real payment methods
+□ Set up proper logging and monitoring
+□ Review security best practices
+
+SECURITY CONSIDERATIONS:
+- Always verify webhook signatures
+- Use HTTPS for all endpoints
+- Store API keys securely (environment variables)
+- Implement rate limiting on webhook endpoints
+- Log security events for monitoring
+- Validate all input data
+- Use secure session management
+
+================================================================================
+                              SUPPORT
+================================================================================
+
+MONEYMOTION RESOURCES:
+- Documentation: https://docs.moneymotion.io
+- API Reference: https://api-docs.moneymotion.io
+- Support: support@moneymotion.io
+- Status Page: https://status.moneymotion.io
+
+INTEGRATION SUPPORT:
+- Check webhook logs for debugging
+- Verify API key permissions
+- Test in sandbox before production
+- Monitor payment success rates
+- Set up proper error handling
+
+================================================================================
+                           IMPLEMENTATION NOTES
+================================================================================
+
+IMPORTANT DETAILS:
+1. Prices must be in CENTS, not dollars (multiply by 100)
+2. Currency header is required for all API calls
+3. Webhook signatures use HMAC-SHA512, not SHA256
+4. Checkout URLs expire after 24 hours
+5. Always handle webhook retries gracefully
+6. Store order data before creating checkout session
+7. Implement proper error recovery mechanisms
+8. Use server-side API calls only (never expose keys to client)
+
+BEST PRACTICES:
+- Create orders as "pending" before payment
+- Update to "completed" only after webhook confirmation
+- Implement idempotency for webhook processing
+- Use database transactions for order updates
+- Send confirmation emails after successful payment
+- Implement proper logging for debugging
+- Handle edge cases (expired sessions, failed payments)
+- Provide clear error messages to users
+
+This guide provides everything needed to implement MoneyMotion payments successfully.
+Follow the code examples and best practices for a secure, reliable payment system.

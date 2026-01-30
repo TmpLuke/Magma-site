@@ -16,11 +16,12 @@ export async function createCoupon(data: {
     
     const { error } = await supabase.from("coupons").insert({
       code: data.code.toUpperCase(),
-      discount_percent: data.discount_percent,
+      discount_type: 'percent',
+      discount_value: data.discount_percent,
       max_uses: data.max_uses,
       current_uses: 0,
       is_active: true,
-      valid_until: data.valid_until,
+      expires_at: data.valid_until,
     });
 
     if (error) throw error;
@@ -50,9 +51,10 @@ export async function updateCoupon(id: string, data: {
       .from("coupons")
       .update({
         code: data.code.toUpperCase(),
-        discount_percent: data.discount_percent,
+        discount_type: 'percent',
+        discount_value: data.discount_percent,
         max_uses: data.max_uses,
-        valid_until: data.valid_until,
+        expires_at: data.valid_until,
         is_active: data.is_active,
       })
       .eq("id", id);

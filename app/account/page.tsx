@@ -637,6 +637,7 @@ export default function AccountPage() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
+                                  onClick={() => window.open(process.env.NEXT_PUBLIC_DISCORD_URL || 'https://discord.gg/your-invite-code', '_blank')}
                                   className="text-[#dc2626] hover:text-[#ef4444] hover:bg-[#dc2626]/10"
                                 >
                                   <Download className="w-4 h-4 mr-1" />

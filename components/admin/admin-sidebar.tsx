@@ -46,7 +46,11 @@ export function AdminSidebar() {
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    // Ensure sidebar is open by default for admin pages
+    if (!sidebarOpen) {
+      setSidebarOpen(true);
+    }
+  }, [sidebarOpen, setSidebarOpen]);
 
   useEffect(() => {
     fetch("/api/auth/context")
@@ -68,8 +72,7 @@ export function AdminSidebar() {
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-40 h-screen bg-gradient-to-b from-[#0a0a0a] to-[#000000] border-r border-[#1a1a1a] transition-all duration-300 flex flex-col",
-        isOpen ? "w-64" : "w-20"
+        "fixed left-0 top-0 z-50 h-screen bg-gradient-to-b from-[#0a0a0a] to-[#000000] border-r border-[#1a1a1a] transition-all duration-300 flex flex-col w-64"
       )}
     >
       {/* Logo Header */}

@@ -455,7 +455,7 @@ export function PopularCheats({ products }: PopularCheatsProps) {
           </div>
 
           {/* Dot Indicators */}
-          <div className="flex items-center justify-center gap-2 sm:gap-3 mt-8 flex-wrap">
+          <div className="flex items-center justify-center gap-2 sm:gap-3 mt-8 mb-6 flex-wrap px-4">
             {displayProducts.map((product, index) => (
               <button
                 key={index}
@@ -484,8 +484,8 @@ export function PopularCheats({ products }: PopularCheatsProps) {
             ))}
           </div>
 
-          {/* Progress bar */}
-          <div className="mt-6 max-w-sm mx-auto">
+          {/* Progress bar and counter */}
+          <div className="max-w-sm mx-auto px-4 mb-6">
             <div className="h-1.5 bg-white/10 rounded-full overflow-hidden backdrop-blur-sm border border-white/5">
               <div
                 className="h-full bg-gradient-to-r from-[#dc2626] via-[#ff4444] to-[#dc2626] rounded-full transition-all duration-700 ease-out relative"
@@ -506,7 +506,7 @@ export function PopularCheats({ products }: PopularCheatsProps) {
           </div>
 
           {/* Auto-play indicator */}
-          <div className="flex items-center justify-center gap-2 mt-4">
+          <div className="flex items-center justify-center gap-2 pb-4">
             <button
               onClick={() => setIsAutoPlaying(!isAutoPlaying)}
               className="flex items-center gap-2 px-4 py-2 bg-[#111111] border border-[#1a1a1a] hover:border-[#dc2626]/30 rounded-lg transition-all group overflow-hidden"

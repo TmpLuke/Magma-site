@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { Upload, X, Plus, Loader2, ImageIcon } from "lucide-react";
+import { useState } from "react";
+import { X, Plus, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import Image from "next/image";
 
 interface GalleryUploaderProps {
   images: string[];
@@ -21,66 +20,8 @@ export function GalleryUploader({
   label = "Gallery Images",
   description 
 }: GalleryUploaderProps) {
-  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [urlInput, setUrlInput] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-
-    // Check max images
-    if (images.length + files.length > maxImages) {
-      setError(`Maximum ${maxImages} images allowed`);
-      return;
-    }
-
-    // Validate files
-    for (const file of files) {
-      if (!file.type.startsWith("image/")) {
-        setError("Please select only image files");
-        return;
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        setError("Each image must be less than 5MB");
-        return;
-      }
-    }
-
-    setError(null);
-    setUploading(true);
-
-    try {
-      const uploadPromises = files.map(async (file) => {
-        const formData = new FormData();
-        formData.append("file", file);
-
-        const response = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!response.ok) {
-          throw new Error("Upload failed");
-        }
-
-        const data = await response.json();
-        return data.url;
-      });
-
-      const urls = await Promise.all(uploadPromises);
-      onChange([...images, ...urls]);
-    } catch (err) {
-      console.error("Upload error:", err);
-      setError("Failed to upload images. Please try again.");
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    }
-  };
 
   const handleAddUrl = () => {
     const url = urlInput.trim();
@@ -120,46 +61,15 @@ export function GalleryUploader({
         </div>
       )}
 
-      {/* Upload Controls */}
+      {/* URL Input */}
       <div className="space-y-3">
-        <div className="flex gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={handleFileSelect}
-            className="hidden"
-          />
-          
-          <Button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading || images.length >= maxImages}
-            className="bg-[#dc2626] hover:bg-[#ef4444] text-white"
-          >
-            {uploading ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Uploading...
-              </>
-            ) : (
-              <>
-                <Upload className="w-4 h-4 mr-2" />
-                Upload Images
-              </>
-            )}
-          </Button>
-        </div>
-
-        {/* Manual URL Input */}
         <div className="flex gap-2">
           <div className="flex-1 relative">
             <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
             <Input
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
-              placeholder="Or paste image URL"
+              placeholder="Paste image URL (e.g., https://i.imgur.com/image.jpg)"
               className="bg-[#1a1a1a] border-[#262626] text-white placeholder:text-white/30 focus:border-[#dc2626]/50 pl-10"
               onKeyPress={(e) => {
                 if (e.key === "Enter") {
@@ -198,12 +108,10 @@ export function GalleryUploader({
           {images.map((url, idx) => (
             <div key={idx} className="relative group">
               <div className="relative aspect-video bg-[#0a0a0a] border-2 border-[#262626] rounded-lg overflow-hidden hover:border-[#dc2626]/50 transition-colors">
-                <Image
+                <img
                   src={url}
                   alt={`Gallery ${idx + 1}`}
-                  fill
-                  className="object-cover"
-                  unoptimized
+                  className="w-full h-full object-cover"
                 />
                 
                 {/* Image Number Badge */}

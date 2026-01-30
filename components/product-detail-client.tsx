@@ -122,6 +122,36 @@ const getProductReviews = (productName: string) => {
       { id: "2", username: "PMC_Slayer", avatarImage: avatarImages[1], rating: 5, text: "Finally surviving raids consistently. Player ESP is a must-have.", created_at: "2026-01-15T17:30:00Z" },
       { id: "3", username: "LabsRunner", avatarImage: avatarImages[2], rating: 5, text: "Worth every ruble! The aimbot works great with all weapons.", created_at: "2026-01-12T14:20:00Z" },
     ],
+    "Call of Duty": [
+      { id: "1", username: "COD_Veteran", avatarImage: avatarImages[0], rating: 5, text: "Best COD cheat I've used. The aimbot is smooth and the ESP is perfect for tracking enemies through walls.", created_at: "2026-01-19T15:00:00Z" },
+      { id: "2", username: "WarzonePro", avatarImage: avatarImages[1], rating: 5, text: "Dominating Warzone lobbies! The UAV hack and loot ESP make every game easy mode.", created_at: "2026-01-16T12:30:00Z" },
+      { id: "3", username: "ModernWarfare", avatarImage: avatarImages[2], rating: 5, text: "Undetected for 2 months now. Customer support is top tier, helped me configure everything perfectly.", created_at: "2026-01-13T10:20:00Z" },
+    ],
+    "Valorant": [
+      { id: "1", username: "RadiantPlayer", avatarImage: avatarImages[2], rating: 5, text: "Finally hit Radiant with this cheat! The triggerbot is insane and the ESP shows abilities perfectly.", created_at: "2026-01-20T14:00:00Z" },
+      { id: "2", username: "ValorantKing", avatarImage: avatarImages[0], rating: 5, text: "Bypasses Vanguard flawlessly. Been using for weeks with zero detection. Worth every penny.", created_at: "2026-01-17T11:30:00Z" },
+      { id: "3", username: "AgentMain", avatarImage: avatarImages[1], rating: 4, text: "Great cheat overall. The recoil control is perfect. Would love to see more agent-specific features.", created_at: "2026-01-14T09:15:00Z" },
+    ],
+    "CS2": [
+      { id: "1", username: "CS_Legend", avatarImage: avatarImages[1], rating: 5, text: "Best CS2 cheat on the market. The bhop and triggerbot work flawlessly. Climbing ranks fast!", created_at: "2026-01-19T16:00:00Z" },
+      { id: "2", username: "GlobalElite", avatarImage: avatarImages[2], rating: 5, text: "Smooth aimbot that doesn't look suspicious. The skin changer is a nice bonus feature.", created_at: "2026-01-16T13:30:00Z" },
+      { id: "3", username: "CounterStrike", avatarImage: avatarImages[0], rating: 5, text: "Undetected and reliable. Support team helped me optimize settings for my playstyle.", created_at: "2026-01-13T10:45:00Z" },
+    ],
+    "Apex Legends": [
+      { id: "1", username: "ApexPredator", avatarImage: avatarImages[0], rating: 5, text: "The Apex cheat is incredible! Smooth aimbot and the ESP helps me track every squad. Been using for 3 weeks with zero issues.", created_at: "2026-01-18T12:00:00Z" },
+      { id: "2", username: "LegendSeeker", avatarImage: avatarImages[1], rating: 5, text: "Finally a working Apex cheat. The item ESP is a game changer for looting. Support helped me set everything up perfectly.", created_at: "2026-01-15T10:30:00Z" },
+      { id: "3", username: "BRKing", avatarImage: avatarImages[2], rating: 4, text: "Solid cheat for Apex. Had some FPS drops initially but after tweaking settings it runs smooth now.", created_at: "2026-01-12T15:45:00Z" },
+    ],
+    "Overwatch 2": [
+      { id: "1", username: "OW2Master", avatarImage: avatarImages[2], rating: 5, text: "Climbing to Grandmaster has never been easier! The aimbot works perfectly with every hero.", created_at: "2026-01-20T15:00:00Z" },
+      { id: "2", username: "SupportMain", avatarImage: avatarImages[0], rating: 5, text: "Even as a support main, this cheat helps me survive and track flankers. Amazing ESP features.", created_at: "2026-01-17T12:30:00Z" },
+      { id: "3", username: "DPSCarry", avatarImage: avatarImages[1], rating: 5, text: "The ultimate tracking ESP is clutch. Never miss an enemy ult again. Highly recommend!", created_at: "2026-01-14T10:20:00Z" },
+    ],
+    "Warzone": [
+      { id: "1", username: "WarzoneKing", avatarImage: avatarImages[1], rating: 5, text: "Best Warzone cheat hands down! The UAV hack and loot ESP make every game a breeze.", created_at: "2026-01-19T17:00:00Z" },
+      { id: "2", username: "VerdanskPro", avatarImage: avatarImages[2], rating: 5, text: "Dropping 20+ kills every game now. The aimbot is smooth and doesn't look suspicious at all.", created_at: "2026-01-16T14:30:00Z" },
+      { id: "3", username: "BRChampion", avatarImage: avatarImages[0], rating: 5, text: "Undetected for months. Customer support is incredible, helped me with every question.", created_at: "2026-01-13T11:45:00Z" },
+    ],
     "default": [
       { id: "1", username: "ProGamer_X", avatarImage: avatarImages[0], rating: 5, text: "Absolutely love this cheat! Smooth performance and the features work exactly as advertised. Support team is incredibly responsive.", created_at: "2026-01-18T12:00:00Z" },
       { id: "2", username: "ElitePlayer", avatarImage: avatarImages[1], rating: 5, text: "Been using for over a month now with no issues. Undetected and reliable. Highly recommend to anyone looking for quality.", created_at: "2026-01-15T10:30:00Z" },

@@ -182,8 +182,9 @@ export async function addLicenseStock(data: {
       license_key: key,
       product_id: data.product_id || null,
       variant_id: data.variant_id || null,
-      product_name: productName,
+      product_name: productName || "General Stock",
       customer_email: "", // Empty string for stock inventory
+      status: "unused", // Explicitly set status to unused
     }));
 
     const { error: insertError } = await supabase

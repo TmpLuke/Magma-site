@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyWebhookSignature, consumeLicenseFromStock } from "@/lib/moneymotion";
+import { verifyWebhookSignature } from "@/lib/moneymotion";
+import { consumeLicenseFromStock } from "@/app/actions/admin-license-stock";
 import { createClient } from "@/lib/supabase/server";
 import { sendPurchaseEmail } from "@/lib/email";
 

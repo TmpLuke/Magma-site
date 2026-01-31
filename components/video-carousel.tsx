@@ -204,15 +204,6 @@ export function VideoCarousel() {
                       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/5 to-transparent -translate-y-full group-hover:translate-y-full transition-transform duration-1200 delay-100" />
                     </div>
 
-                    {/* Title overlay on hover */}
-                    <div className={`absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 via-black/50 to-transparent transition-all duration-500 ${
-                      isHovered ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
-                    }`}>
-                      <h3 className="text-white font-semibold text-sm line-clamp-2">
-                        {video.title}
-                      </h3>
-                    </div>
-
                     {/* Corner accents */}
                     <div className={`absolute top-2 left-2 w-8 h-8 border-t-2 border-l-2 border-[#dc2626]/50 rounded-tl-lg transition-all duration-500 ${
                       isHovered ? "w-12 h-12 border-[#dc2626]" : ""

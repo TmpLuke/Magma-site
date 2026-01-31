@@ -263,24 +263,28 @@ export function PopularCheats({ products }: PopularCheatsProps) {
           style={{ perspective: "2000px" }}
         >
           {/* Navigation Buttons with enhanced styling */}
-          <button
-            onClick={goToPrevious}
-            className="group absolute left-0 sm:left-4 top-1/2 -translate-y-1/2 z-40 w-14 h-14 rounded-full bg-[#dc2626]/10 hover:bg-[#dc2626]/20 border-2 border-[#dc2626]/20 hover:border-[#dc2626]/40 backdrop-blur-xl flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95"
-            aria-label="Previous product"
-          >
-            <div className="absolute inset-0 rounded-full bg-[#dc2626]/20 blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            <ChevronLeft className="relative z-10 w-7 h-7 text-[#dc2626] transition-transform duration-300 group-hover:-translate-x-0.5" />
-          </button>
+          {displayProducts.length > 1 && (
+            <>
+              <button
+                onClick={goToPrevious}
+                className="group absolute left-0 sm:left-4 top-1/2 -translate-y-1/2 z-40 w-14 h-14 rounded-full bg-[#dc2626]/10 hover:bg-[#dc2626]/20 border-2 border-[#dc2626]/20 hover:border-[#dc2626]/40 backdrop-blur-xl flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95"
+                aria-label="Previous product"
+              >
+                <div className="absolute inset-0 rounded-full bg-[#dc2626]/20 blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <ChevronLeft className="relative z-10 w-7 h-7 text-[#dc2626] transition-transform duration-300 group-hover:-translate-x-0.5" />
+              </button>
 
-          <button
-            onClick={goToNext}
-            className="group absolute right-0 sm:right-4 top-1/2 -translate-y-1/2 z-40 w-14 h-14 rounded-full bg-[#dc2626] hover:bg-[#ef4444] backdrop-blur-xl flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 overflow-hidden"
-            aria-label="Next product"
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-            <div className="absolute -inset-1 bg-[#dc2626] blur-lg opacity-50 group-hover:opacity-70 transition-opacity duration-300" />
-            <ChevronRight className="relative z-10 w-7 h-7 text-white transition-transform duration-300 group-hover:translate-x-0.5" />
-          </button>
+              <button
+                onClick={goToNext}
+                className="group absolute right-0 sm:right-4 top-1/2 -translate-y-1/2 z-40 w-14 h-14 rounded-full bg-[#dc2626] hover:bg-[#ef4444] backdrop-blur-xl flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 overflow-hidden"
+                aria-label="Next product"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+                <div className="absolute -inset-1 bg-[#dc2626] blur-lg opacity-50 group-hover:opacity-70 transition-opacity duration-300" />
+                <ChevronRight className="relative z-10 w-7 h-7 text-white transition-transform duration-300 group-hover:translate-x-0.5" />
+              </button>
+            </>
+          )}
 
           {/* Product Cards */}
           <div className="relative w-full h-full flex items-center justify-center">
@@ -455,72 +459,78 @@ export function PopularCheats({ products }: PopularCheatsProps) {
           </div>
 
           {/* Dot Indicators */}
-          <div className="flex items-center justify-center gap-2 sm:gap-3 mt-8 mb-6 flex-wrap px-4">
-            {displayProducts.map((product, index) => (
-              <button
-                key={index}
-                onClick={() => goToSlide(index)}
-                className={`group/dot relative transition-all duration-500 ${
-                  index === currentIndex ? "w-12 sm:w-14" : "w-8 sm:w-10"
-                }`}
-                aria-label={`Go to ${product.game}`}
-              >
-                <div className={`relative overflow-hidden rounded-full transition-all duration-500 ${
-                  index === currentIndex
-                    ? "h-3 bg-gradient-to-r from-[#dc2626] to-[#ef4444] shadow-lg shadow-[#dc2626]/50 ring-2 ring-[#dc2626]/30"
-                    : "h-2.5 bg-white/20 group-hover/dot:bg-white/40 group-hover/dot:scale-125"
-                }`}>
-                  {index === currentIndex && (
-                    <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer" />
-                  )}
-                </div>
-                
-                {/* Tooltip */}
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-black/90 backdrop-blur-sm rounded-lg text-white text-xs font-semibold whitespace-nowrap opacity-0 group-hover/dot:opacity-100 transition-opacity pointer-events-none border border-white/10">
-                  {product.game}
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px border-4 border-transparent border-t-black/90" />
-                </div>
-              </button>
-            ))}
-          </div>
+          {displayProducts.length > 1 && (
+            <div className="flex items-center justify-center gap-2 sm:gap-3 mt-8 mb-6 flex-wrap px-4">
+              {displayProducts.map((product, index) => (
+                <button
+                  key={index}
+                  onClick={() => goToSlide(index)}
+                  className={`group/dot relative transition-all duration-500 ${
+                    index === currentIndex ? "w-12 sm:w-14" : "w-8 sm:w-10"
+                  }`}
+                  aria-label={`Go to ${product.game}`}
+                >
+                  <div className={`relative overflow-hidden rounded-full transition-all duration-500 ${
+                    index === currentIndex
+                      ? "h-3 bg-gradient-to-r from-[#dc2626] to-[#ef4444] shadow-lg shadow-[#dc2626]/50 ring-2 ring-[#dc2626]/30"
+                      : "h-2.5 bg-white/20 group-hover/dot:bg-white/40 group-hover/dot:scale-125"
+                  }`}>
+                    {index === currentIndex && (
+                      <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer" />
+                    )}
+                  </div>
+                  
+                  {/* Tooltip */}
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-black/90 backdrop-blur-sm rounded-lg text-white text-xs font-semibold whitespace-nowrap opacity-0 group-hover/dot:opacity-100 transition-opacity pointer-events-none border border-white/10">
+                    {product.game}
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px border-4 border-transparent border-t-black/90" />
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Progress bar and counter */}
-          <div className="max-w-sm mx-auto px-4 mb-6">
-            <div className="h-1.5 bg-white/10 rounded-full overflow-hidden backdrop-blur-sm border border-white/5">
-              <div
-                className="h-full bg-gradient-to-r from-[#dc2626] via-[#ff4444] to-[#dc2626] rounded-full transition-all duration-700 ease-out relative"
-                style={{
-                  width: `${((currentIndex + 1) / displayProducts.length) * 100}%`,
-                }}
-              >
-                <span className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-r from-transparent to-white/50 animate-pulse" />
-                <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/30 to-white/0 animate-shimmer" />
-              </div>
-            </div>
-            
-            <div className="flex items-center justify-center gap-2 mt-3 text-white/60 text-sm font-medium">
-              <span className="text-[#dc2626] font-bold text-lg">{currentIndex + 1}</span>
-              <span>/</span>
-              <span>{displayProducts.length}</span>
-            </div>
-          </div>
-
-          {/* Auto-play indicator */}
-          <div className="flex items-center justify-center gap-2 pb-4">
-            <button
-              onClick={() => setIsAutoPlaying(!isAutoPlaying)}
-              className="flex items-center gap-2 px-4 py-2 bg-[#111111] border border-[#1a1a1a] hover:border-[#dc2626]/30 rounded-lg transition-all group overflow-hidden"
-            >
-              <div className="relative">
-                <div className={`w-2 h-2 rounded-full ${isAutoPlaying ? 'bg-green-400' : 'bg-white/40'}`}>
-                  {isAutoPlaying && <div className="absolute inset-0 bg-green-400 rounded-full animate-ping" />}
+          {displayProducts.length > 1 && (
+            <div className="max-w-sm mx-auto px-4 mb-6">
+              <div className="h-1.5 bg-white/10 rounded-full overflow-hidden backdrop-blur-sm border border-white/5">
+                <div
+                  className="h-full bg-gradient-to-r from-[#dc2626] via-[#ff4444] to-[#dc2626] rounded-full transition-all duration-700 ease-out relative"
+                  style={{
+                    width: `${((currentIndex + 1) / displayProducts.length) * 100}%`,
+                  }}
+                >
+                  <span className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-r from-transparent to-white/50 animate-pulse" />
+                  <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/30 to-white/0 animate-shimmer" />
                 </div>
               </div>
-              <span className="text-white/60 text-xs font-medium group-hover:text-white/80 transition-colors">
-                {isAutoPlaying ? "Auto-playing" : "Paused"}
-              </span>
-            </button>
-          </div>
+              
+              <div className="flex items-center justify-center gap-2 mt-3 text-white/60 text-sm font-medium">
+                <span className="text-[#dc2626] font-bold text-lg">{currentIndex + 1}</span>
+                <span>/</span>
+                <span>{displayProducts.length}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Auto-play indicator */}
+          {displayProducts.length > 1 && (
+            <div className="flex items-center justify-center gap-2 pb-4">
+              <button
+                onClick={() => setIsAutoPlaying(!isAutoPlaying)}
+                className="flex items-center gap-2 px-4 py-2 bg-[#111111] border border-[#1a1a1a] hover:border-[#dc2626]/30 rounded-lg transition-all group overflow-hidden"
+              >
+                <div className="relative">
+                  <div className={`w-2 h-2 rounded-full ${isAutoPlaying ? 'bg-green-400' : 'bg-white/40'}`}>
+                    {isAutoPlaying && <div className="absolute inset-0 bg-green-400 rounded-full animate-ping" />}
+                  </div>
+                </div>
+                <span className="text-white/60 text-xs font-medium group-hover:text-white/80 transition-colors">
+                  {isAutoPlaying ? "Auto-playing" : "Paused"}
+                </span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

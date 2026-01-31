@@ -16,7 +16,7 @@ import {
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { mockProducts } from "@/lib/admin-mock-data";
+import { searchProducts } from "@/lib/supabase/data";
 import { AuthDropdown } from "@/components/auth-dropdown";
 import { useCart } from "@/lib/cart-context";
 import { CartDropdown } from "@/components/cart-dropdown";
@@ -25,7 +25,7 @@ export function Header() {
   const router = useRouter();
   const { getItemCount } = useCart();
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<typeof mockProducts>([]);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -33,18 +33,23 @@ export function Header() {
 
   // Handle search
   useEffect(() => {
-    if (searchQuery.trim()) {
-      const filtered = mockProducts.filter(
-        (product) =>
-          product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          product.game.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setSearchResults(filtered);
-      setShowResults(true);
-    } else {
-      setSearchResults([]);
-      setShowResults(false);
-    }
+    const timer = setTimeout(async () => {
+      if (searchQuery.trim()) {
+        try {
+          const results = await searchProducts(searchQuery);
+          setSearchResults(results);
+          setShowResults(true);
+        } catch (error) {
+          console.error("Search error:", error);
+          setSearchResults([]);
+        }
+      } else {
+        setSearchResults([]);
+        setShowResults(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
   }, [searchQuery]);
 
   // Close search results on click outside

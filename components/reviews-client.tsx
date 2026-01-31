@@ -1,8 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Star, Filter, TrendingUp, Users, Award, Sparkles, Quote, ThumbsUp, Calendar, Search, X } from "lucide-react";
+import { Star, Filter, TrendingUp, Users, Award, Sparkles, Quote, ThumbsUp, Calendar, Search, X, PenLine } from "lucide-react";
 import Image from "next/image";
+import { ReviewModal } from "@/components/review-modal";
+import { createReview } from "@/lib/supabase/data";
+import { useToast } from "@/hooks/use-toast";
 
 interface Review {
   id: string;
@@ -39,6 +42,40 @@ export function ReviewsClient({
   const [filterRating, setFilterRating] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"newest" | "highest" | "lowest">("newest");
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const { toast } = useToast();
+
+  const handleReviewSubmit = async (data: { username: string; rating: number; text: string; image_url?: string }) => {
+    try {
+      const newReview = {
+        username: data.username,
+        rating: data.rating,
+        text: data.text,
+        image_url: data.image_url,
+        avatar: data.username.charAt(0).toUpperCase(),
+        verified: true,
+      };
+
+      const savedReview = await createReview(newReview);
+
+      if (savedReview) {
+        setReviews([savedReview, ...reviews]);
+        toast({
+          title: "Review Submitted",
+          description: "Thank you for your feedback!",
+        });
+      } else {
+        throw new Error("Failed to save review");
+      }
+    } catch (error) {
+      console.error("Error submitting review:", error);
+      toast({
+        title: "Error",
+        description: "Failed to submit review. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   // Filter and sort reviews
   const filteredReviews = reviews
@@ -95,9 +132,17 @@ export function ReviewsClient({
             </span>
           </h1>
           
-          <p className="text-white/60 text-lg max-w-2xl mx-auto">
+          <p className="text-white/60 text-lg max-w-2xl mx-auto mb-8">
             Real feedback from real customers. See why thousands trust our products.
           </p>
+
+          <button
+            onClick={() => setIsReviewModalOpen(true)}
+            className="inline-flex items-center gap-2 bg-[#dc2626] hover:bg-[#ef4444] text-white px-6 py-3 rounded-lg font-semibold transition-all hover:scale-105 hover:shadow-lg hover:shadow-[#dc2626]/30"
+          >
+            <PenLine className="w-5 h-5" />
+            Write a Review
+          </button>
         </div>
 
         {/* Enhanced Statistics Dashboard */}
@@ -336,6 +381,20 @@ export function ReviewsClient({
                     "{review.text}"
                   </p>
 
+                  {/* Review Image */}
+                  {review.image_url && (
+                    <div className="mb-6 relative z-10">
+                      <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-[#262626]">
+                        <Image
+                          src={review.image_url}
+                          alt="Review attachment"
+                          fill
+                          className="object-cover transition-transform duration-500 hover:scale-105"
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   {/* Footer */}
                   <div className="flex items-center justify-between pt-4 border-t border-[#1a1a1a] relative z-10">
                     <div className="flex items-center gap-3">
@@ -423,6 +482,12 @@ export function ReviewsClient({
           animation: fade-in 0.6s ease-out;
         }
       `}</style>
+
+      <ReviewModal
+        open={isReviewModalOpen}
+        onOpenChange={setIsReviewModalOpen}
+        onSubmit={handleReviewSubmit}
+      />
     </div>
   );
 }

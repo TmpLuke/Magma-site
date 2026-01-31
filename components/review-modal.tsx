@@ -11,6 +11,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Star, Send, CheckCircle } from "lucide-react";
+import { ImageUploader } from "@/components/admin/image-uploader";
 
 interface ReviewModalProps {
   open: boolean;
@@ -19,6 +20,7 @@ interface ReviewModalProps {
     username: string;
     rating: number;
     text: string;
+    image_url?: string;
   }) => void;
 }
 
@@ -27,6 +29,7 @@ export function ReviewModal({ open, onOpenChange, onSubmit }: ReviewModalProps) 
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [text, setText] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
@@ -39,7 +42,7 @@ export function ReviewModal({ open, onOpenChange, onSubmit }: ReviewModalProps) 
     // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 800));
     
-    onSubmit({ username, rating, text });
+    onSubmit({ username, rating, text, image_url: imageUrl });
     setIsSubmitting(false);
     setIsSuccess(true);
     
@@ -48,6 +51,7 @@ export function ReviewModal({ open, onOpenChange, onSubmit }: ReviewModalProps) 
       setUsername("");
       setRating(0);
       setText("");
+      setImageUrl("");
       setIsSuccess(false);
       onOpenChange(false);
     }, 2000);
@@ -58,6 +62,7 @@ export function ReviewModal({ open, onOpenChange, onSubmit }: ReviewModalProps) 
     setRating(0);
     setHoverRating(0);
     setText("");
+    setImageUrl("");
     setIsSuccess(false);
   };
 
@@ -161,6 +166,16 @@ export function ReviewModal({ open, onOpenChange, onSubmit }: ReviewModalProps) 
                 <p className="text-white/40 text-xs">
                   Minimum 10 characters ({text.length}/10)
                 </p>
+              </div>
+
+              {/* Image Upload */}
+              <div className="space-y-2">
+                <ImageUploader
+                  value={imageUrl}
+                  onChange={setImageUrl}
+                  label="Attach an Image (Optional)"
+                  description="Upload a screenshot or photo with your review."
+                />
               </div>
 
               {/* Submit Button */}

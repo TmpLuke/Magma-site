@@ -33,6 +33,8 @@ import { useCart } from "@/lib/cart-context";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { AddToCartModal } from "@/components/add-to-cart-modal";
+import { ReviewModal } from "@/components/review-modal";
+import { createReview } from "@/lib/supabase/data";
 
 interface Product {
   id: string;
@@ -192,6 +194,48 @@ export function ProductDetailClient({ product, reviews, gameSlug }: { product: P
   
   // Add to cart modal state
   const [showAddToCartModal, setShowAddToCartModal] = useState(false);
+
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [localReviews, setLocalReviews] = useState<Review[]>(reviews || []);
+
+  // Update local reviews when props change
+  useEffect(() => {
+    if (reviews && reviews.length > 0) {
+      setLocalReviews(reviews);
+    }
+  }, [reviews]);
+
+  const handleReviewSubmit = async (data: { username: string; rating: number; text: string; image_url?: string }) => {
+    try {
+      const newReview = {
+        username: data.username,
+        rating: data.rating,
+        text: data.text,
+        image_url: data.image_url,
+        avatar: data.username.charAt(0).toUpperCase(),
+        verified: true,
+      };
+
+      const savedReview = await createReview(newReview);
+
+      if (savedReview) {
+        setLocalReviews([savedReview, ...localReviews]);
+        toast({
+          title: "Review Submitted",
+          description: "Thank you for your feedback!",
+        });
+      } else {
+        throw new Error("Failed to save review");
+      }
+    } catch (error) {
+      console.error("Error submitting review:", error);
+      toast({
+        title: "Error",
+        description: "Failed to submit review. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   // Live viewing counter animation
   const [viewingCount, setViewingCount] = useState(42);
@@ -539,10 +583,15 @@ export function ProductDetailClient({ product, reviews, gameSlug }: { product: P
                         <Package className="w-3 h-3" />
                         STOCK
                       </p>
-                      <p className={`text-lg font-bold ${tier.stock < 10 ? 'text-yellow-400' : ''}`}>
+                      <p className={`text-lg font-bold ${
+                        tier.stock === 0 ? 'text-red-500' : 
+                        tier.stock < 10 ? 'text-yellow-400' : ''
+                      }`}>
                         {tier.stock}
                       </p>
-                      {tier.stock < 10 && (
+                      {tier.stock === 0 ? (
+                        <p className="text-xs text-red-500 mt-1">Out of Stock</p>
+                      ) : tier.stock < 10 && (
                         <p className="text-xs text-yellow-400 mt-1">Low Stock!</p>
                       )}
                     </div>
@@ -578,12 +627,16 @@ export function ProductDetailClient({ product, reviews, gameSlug }: { product: P
               
               <button
                 onClick={handleBuyNow}
-                disabled={!selectedTier}
-                className="relative w-full py-5 rounded-xl font-bold text-lg transition-all duration-300 flex items-center justify-center gap-3 overflow-hidden group bg-gradient-to-r from-[#dc2626] to-[#ef4444] text-white hover:from-[#ef4444] hover:to-[#dc2626] hover:shadow-2xl hover:shadow-[#dc2626]/40 hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!selectedTier || selectedTier.stock === 0}
+                className="relative w-full py-5 rounded-xl font-bold text-lg transition-all duration-300 flex items-center justify-center gap-3 overflow-hidden group bg-gradient-to-r from-[#dc2626] to-[#ef4444] text-white hover:from-[#ef4444] hover:to-[#dc2626] hover:shadow-2xl hover:shadow-[#dc2626]/40 hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none"
               >
                 <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
                 <Zap className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                {selectedTier ? `Buy Now - $${(selectedTier.price * quantity).toFixed(2)}` : 'No pricing available'}
+                {selectedTier 
+                  ? (selectedTier.stock > 0 
+                      ? `Buy Now - $${(selectedTier.price * quantity).toFixed(2)}` 
+                      : 'Out of Stock') 
+                  : 'No pricing available'}
               </button>
             </div>
 
@@ -706,15 +759,20 @@ export function ProductDetailClient({ product, reviews, gameSlug }: { product: P
                       <p className="text-white/60 text-sm">Satisfaction</p>
                     </div>
                     <div className="space-y-2">
-                      <p className="text-5xl font-bold text-blue-400">15K+</p>
-                      <p className="text-white/60 text-sm">Active Users</p>
+                      <button 
+                        onClick={() => setIsReviewModalOpen(true)}
+                        className="w-full h-full min-h-[100px] flex flex-col items-center justify-center gap-2 bg-[#dc2626]/10 hover:bg-[#dc2626]/20 border border-[#dc2626]/20 rounded-xl transition-all group cursor-pointer"
+                      >
+                        <PenLine className="w-8 h-8 text-[#dc2626] group-hover:scale-110 transition-transform" />
+                        <span className="text-[#dc2626] font-bold">Write a Review</span>
+                      </button>
                     </div>
                   </div>
                 </div>
 
                 {/* Reviews Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {(reviews.length > 0 ? reviews : getProductReviews(product.name)).map((review, index) => (
+                  {(localReviews.length > 0 ? localReviews : getProductReviews(product.name)).map((review, index) => (
                     <div 
                       key={review.id || index} 
                       className="group relative bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-[#1a1a1a] rounded-2xl p-6 hover:border-[#dc2626]/30 transition-all duration-300 overflow-hidden"
@@ -789,6 +847,12 @@ export function ProductDetailClient({ product, reviews, gameSlug }: { product: P
           </div>
         </div>
       </div>
+
+      <ReviewModal
+        open={isReviewModalOpen}
+        onOpenChange={setIsReviewModalOpen}
+        onSubmit={handleReviewSubmit}
+      />
 
       {/* Enhanced Checkout Modal */}
       {showCheckoutModal && !purchaseComplete && (
@@ -1021,6 +1085,6 @@ export function ProductDetailClient({ product, reviews, gameSlug }: { product: P
           transform: scale(1.02);
         }
       `}</style>
-    </div>
+      </div>
   );
 }

@@ -283,6 +283,7 @@ export async function consumeLicenseFromStock(data: {
         .select("*")
         .eq("product_id", data.product_id)
         .eq("variant_id", data.variant_id)
+        .eq("status", "unused")
         .limit(1)
         .single();
       
@@ -299,6 +300,7 @@ export async function consumeLicenseFromStock(data: {
         .select("*")
         .eq("product_id", data.product_id)
         .is("variant_id", null)
+        .eq("status", "unused")
         .limit(1)
         .single();
       
@@ -315,6 +317,7 @@ export async function consumeLicenseFromStock(data: {
         .select("*")
         .is("product_id", null)
         .is("variant_id", null)
+        .eq("status", "unused")
         .limit(1)
         .single();
       
@@ -340,6 +343,7 @@ export async function consumeLicenseFromStock(data: {
     }
 
     revalidatePath("/mgmt-x9k2m7/licenses");
+    revalidatePath("/", "layout");
     return { success: true, license_key: license.license_key };
   } catch (error: any) {
     console.error("[Admin] Consume license from stock error:", error);

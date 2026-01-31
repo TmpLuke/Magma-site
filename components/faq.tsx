@@ -67,8 +67,7 @@ export function FAQ() {
           {/* Title centered above */}
           <div className="text-center mb-12">
             <h2
-              className="text-3xl md:text-5xl font-bold text-white mb-6"
-              style={{ fontFamily: "Georgia, serif" }}
+              className="text-3xl md:text-5xl font-black text-white mb-6"
             >
               Frequently Asked
               <br />

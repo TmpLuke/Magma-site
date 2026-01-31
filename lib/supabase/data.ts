@@ -74,15 +74,25 @@ export async function getProducts() {
       supabase.from("product_pricing").select("*").in("product_id", productIds),
       supabase.from("product_features").select("*").in("product_id", productIds),
       supabase.from("product_requirements").select("*").in("product_id", productIds),
-      supabase.from("licenses").select("product_id, variant_id").in("product_id", productIds).eq("status", "unused"),
+      supabase.from("licenses").select("product_id, variant_id").eq("status", "unused"),
     ]);
 
     // Calculate stock counts
-    const stockMap = new Map<string, number>(); // variant_id -> count
+    let generalStock = 0;
+    const productStockMap = new Map<string, number>(); // product_id -> count
+    const variantStockMap = new Map<string, number>(); // variant_id -> count
+
     if (stockResult.data) {
       stockResult.data.forEach((l) => {
-        if (l.variant_id) {
-          stockMap.set(l.variant_id, (stockMap.get(l.variant_id) || 0) + 1);
+        if (!l.product_id) {
+          // General stock (available to all)
+          generalStock++;
+        } else if (!l.variant_id) {
+          // Product specific stock (available to all variants of this product)
+          productStockMap.set(l.product_id, (productStockMap.get(l.product_id) || 0) + 1);
+        } else {
+          // Variant specific stock
+          variantStockMap.set(l.variant_id, (variantStockMap.get(l.variant_id) || 0) + 1);
         }
       });
     }
@@ -92,10 +102,16 @@ export async function getProducts() {
       let pricing = pricingResult.data?.filter((p) => p.product_id === product.id) || [];
       
       // Inject real stock counts
-      pricing = pricing.map(p => ({
-        ...p,
-        stock: stockMap.get(p.id) || 0
-      }));
+      pricing = pricing.map(p => {
+        const productLevelStock = productStockMap.get(product.id) || 0;
+        const variantLevelStock = variantStockMap.get(p.id) || 0;
+        const totalStock = generalStock + productLevelStock + variantLevelStock;
+        
+        return {
+          ...p,
+          stock: totalStock
+        };
+      });
 
       const features = featuresResult.data?.filter((f) => f.product_id === product.id) || [];
       const requirements = requirementsResult.data?.filter((r) => r.product_id === product.id) || [];
@@ -104,6 +120,31 @@ export async function getProducts() {
     });
   } catch (e) {
     console.error("[Products] Exception:", e);
+    return [];
+  }
+}
+
+export async function searchProducts(query: string) {
+  try {
+    const supabase = await createClient();
+    
+    // Sanitize query to prevent empty searches
+    if (!query.trim()) return [];
+
+    const { data, error } = await supabase
+      .from("products")
+      .select("id, name, slug, game, image, status")
+      .or(`name.ilike.%${query}%,game.ilike.%${query}%`)
+      .limit(10);
+
+    if (error) {
+      console.error("Error searching products:", error);
+      return [];
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error("Exception searching products:", error);
     return [];
   }
 }
@@ -128,25 +169,39 @@ export async function getProductBySlug(slug: string) {
       supabase.from("product_pricing").select("*").eq("product_id", product.id),
       supabase.from("product_features").select("*").eq("product_id", product.id),
       supabase.from("product_requirements").select("*").eq("product_id", product.id),
-      supabase.from("licenses").select("variant_id").eq("product_id", product.id).eq("status", "unused"),
+      supabase
+        .from("licenses")
+        .select("product_id, variant_id")
+        .eq("status", "unused")
+        .or(`product_id.is.null,product_id.eq.${product.id}`),
     ]);
 
     // Calculate stock counts
-    const stockMap = new Map<string, number>();
+    let generalStock = 0;
+    let productSpecificStock = 0;
+    const variantStockMap = new Map<string, number>();
+
     if (stockResult.data) {
       stockResult.data.forEach((l) => {
-        if (l.variant_id) {
-          stockMap.set(l.variant_id, (stockMap.get(l.variant_id) || 0) + 1);
+        if (!l.product_id) {
+          generalStock++;
+        } else if (!l.variant_id) {
+          productSpecificStock++;
+        } else {
+          variantStockMap.set(l.variant_id, (variantStockMap.get(l.variant_id) || 0) + 1);
         }
       });
     }
 
     let pricing = pricingResult.data || [];
     // Inject real stock counts
-    pricing = pricing.map(p => ({
-      ...p,
-      stock: stockMap.get(p.id) || 0
-    }));
+    pricing = pricing.map(p => {
+      const variantLevelStock = variantStockMap.get(p.id) || 0;
+      return {
+        ...p,
+        stock: generalStock + productSpecificStock + variantLevelStock
+      };
+    });
 
     return transformProduct(
       product,
@@ -391,6 +446,7 @@ export async function createReview(review: {
   rating: number;
   text: string;
   verified: boolean;
+  image_url?: string;
 }) {
   const supabase = await createClient();
   const { data, error } = await supabase

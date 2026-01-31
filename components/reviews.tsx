@@ -103,8 +103,7 @@ export function Reviews({ reviews: initialReviews }: ReviewsProps) {
         >
           <div>
             <h2
-              className="text-3xl md:text-5xl font-bold text-white mb-3"
-              style={{ fontFamily: "Georgia, serif" }}
+              className="text-3xl md:text-5xl font-black text-white mb-3"
             >
               Reviews that
               <br />
